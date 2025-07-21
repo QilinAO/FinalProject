@@ -1,4 +1,6 @@
-// my-project/src/Pages/Expert/ExpertProfile.jsx (ฉบับสมบูรณ์)
+// D:\ProJectFinal\Lasts\my-project\src\Pages\Expert\ExpertProfile.jsx (ฉบับสมบูรณ์)
+
+// --- ส่วนที่ 1: การนำเข้า (Imports) ---
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -6,49 +8,53 @@ import { fetchProfile, updateProfile, uploadProfilePicture } from '../../service
 import { toast } from 'react-toastify';
 import { LoaderCircle, Camera, Save, Edit3, X, Check } from 'lucide-react';
 
-// รูปโปรไฟล์เริ่มต้น
+// --- ส่วนที่ 2: ค่าคงที่ (Constants) ---
+
+// รูปโปรไฟล์เริ่มต้น ในกรณีที่ผู้ใช้ยังไม่มีรูป
 const defaultAvatar = 'https://placehold.co/150x150/A78BFA/FFFFFF?text=Expert';
 
-// รายการความถนัดทั้งหมด (ตรงกับที่ใช้ในฟอร์มของ User)
+// รายการความถนัดทั้งหมดที่ Expert สามารถเลือกได้
 const BETTA_SPECIALITIES = [
   "ปลากัดพื้นบ้านภาคกลางและเหนือ", "ปลากัดพื้นบ้านภาคอีสาน", "ปลากัดพื้นภาคใต้",
   "ปลากัดพื้นบ้านมหาชัย", "ปลากัดพื้นบ้านภาคตะวันออก", "ปลากัดพื้นบ้านอีสานหางลาย"
 ];
 
+
+// --- ส่วนที่ 3: Main Component ---
+
 const ExpertProfile = () => {
-    // 1. ดึงข้อมูลผู้ใช้และสถานะ Loading จาก AuthContext
+    // --- State Management ---
     const { user, loading: authLoading } = useAuth();
-    
-    // 2. States สำหรับจัดการข้อมูลในหน้านี้
-    const [profileData, setProfileData] = useState(null); // ข้อมูลโปรไฟล์ที่ดึงมาล่าสุด
-    const [loading, setLoading] = useState(true); // สถานะ Loading ของหน้านี้
-    const [isEditing, setIsEditing] = useState(false); // โหมดแก้ไข
-    const [formData, setFormData] = useState({ // ข้อมูลในฟอร์ม
+    const [profileData, setProfileData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [formData, setFormData] = useState({
         first_name: '',
         last_name: '',
         specialities: []
     });
     const fileInputRef = useRef(null);
 
-    // 3. useEffect สำหรับดึงข้อมูลโปรไฟล์เมื่อ Component โหลด
+    // --- Effects ---
     useEffect(() => {
-        // จะทำงานก็ต่อเมื่อ AuthContext โหลดเสร็จแล้ว และมีข้อมูล user
         if (!authLoading && user) {
             loadProfile();
         }
     }, [user, authLoading]);
 
+    // --- Data Fetching ---
     const loadProfile = async () => {
         setLoading(true);
         try {
-            // เรียกใช้ Service เพื่อดึงข้อมูลโปรไฟล์ล่าสุด
-            const data = await fetchProfile();
-            setProfileData(data);
-            // ตั้งค่าเริ่มต้นให้ฟอร์ม
+            const response = await fetchProfile();
+            // [แก้ไข] ดึงข้อมูลโปรไฟล์ที่แท้จริงจาก response.profile
+            const userProfile = response.profile;
+
+            setProfileData(userProfile);
             setFormData({
-                first_name: data.first_name || '',
-                last_name: data.last_name || '',
-                specialities: data.specialities || []
+                first_name: userProfile.first_name || '',
+                last_name: userProfile.last_name || '',
+                specialities: userProfile.specialities || []
             });
         } catch (error) {
             toast.error("ไม่สามารถโหลดข้อมูลโปรไฟล์ได้");
@@ -57,7 +63,7 @@ const ExpertProfile = () => {
         }
     };
 
-    // 4. Handlers สำหรับจัดการฟอร์ม
+    // --- Event Handlers ---
     const handleChange = (e) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     };
@@ -66,17 +72,13 @@ const ExpertProfile = () => {
         setFormData(prev => {
             const currentSpecialities = prev.specialities || [];
             const isSelected = currentSpecialities.includes(speciality);
-            let newSpecialities;
+            let newSpecialities = isSelected
+                ? currentSpecialities.filter(s => s !== speciality)
+                : [...currentSpecialities, speciality];
 
-            if (isSelected) {
-                newSpecialities = currentSpecialities.filter(s => s !== speciality);
-            } else {
-                if (currentSpecialities.length < 2) {
-                    newSpecialities = [...currentSpecialities, speciality];
-                } else {
-                    toast.warn("สามารถเลือกความถนัดได้สูงสุด 2 อย่าง");
-                    newSpecialities = currentSpecialities;
-                }
+            if (newSpecialities.length > 2) {
+                toast.warn("สามารถเลือกความถนัดได้สูงสุด 2 อย่าง");
+                return prev; // คืนค่าเดิม ไม่เปลี่ยนแปลง
             }
             return { ...prev, specialities: newSpecialities };
         });
@@ -84,9 +86,8 @@ const ExpertProfile = () => {
 
     const handleSave = async () => {
         try {
-            // เรียกใช้ Service เพื่ออัปเดตข้อมูล
-            const updatedProfile = await updateProfile(formData);
-            setProfileData(updatedProfile); // อัปเดตข้อมูลที่แสดงผล
+            const response = await updateProfile(formData);
+            setProfileData(response.data);
             setIsEditing(false);
             toast.success("บันทึกข้อมูลสำเร็จ!");
         } catch (error) {
@@ -99,17 +100,15 @@ const ExpertProfile = () => {
         if (!file) return;
         toast.info("กำลังอัปโหลดรูปภาพ...");
         try {
-            // เรียกใช้ Service เพื่ออัปโหลดรูป
-            const updatedProfile = await uploadProfilePicture(file);
-            setProfileData(updatedProfile); // อัปเดตข้อมูลโปรไฟล์ (รวมถึง avatar_url ใหม่)
+            const response = await uploadProfilePicture(file);
+            setProfileData(response.data);
             toast.success("อัปโหลดรูปสำเร็จ!");
         } catch (error) {
             toast.error("อัปโหลดรูปล้มเหลว: " + error.message);
         }
     };
 
-    // --- ส่วนของการแสดงผล (Render) ---
-
+    // --- Render Logic ---
     if (authLoading || loading) {
         return <div className="flex justify-center p-10"><LoaderCircle className="animate-spin text-teal-600" size={40} /></div>;
     }

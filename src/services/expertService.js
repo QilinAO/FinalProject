@@ -12,7 +12,7 @@ import apiService from './api';
 // ========================================================
 
 /**
- * [อัปเดต] ดึงข้อมูลสรุปทั้งหมดสำหรับหน้า Dashboard ของ Expert
+ * ดึงข้อมูลสรุปทั้งหมดสำหรับหน้า Dashboard ของ Expert
  * (เรียกใช้ API: GET /api/experts/dashboard)
  */
 export const getExpertDashboardStats = () => {
@@ -25,7 +25,7 @@ export const getExpertDashboardStats = () => {
 // ========================================================
 
 /**
- * [อัปเดต] ดึงคิวงานประเมินคุณภาพทั้งหมด (ทั้งที่รอตอบรับและรับแล้ว)
+ * ดึงคิวงานประเมินคุณภาพทั้งหมด (ทั้งที่รอตอบรับและรับแล้ว)
  * (เรียกใช้ API: GET /api/experts/queue)
  */
 export const getEvaluationQueue = () => {
@@ -59,7 +59,7 @@ export const submitQualityScores = (assignmentId, scoresData) => {
 // ========================================================
 
 /**
- * [อัปเดต] ดึงข้อมูลการแข่งขันทั้งหมด (ทั้งคำเชิญและรายการที่รับแล้ว)
+ * ดึงข้อมูลการแข่งขันทั้งหมด (ทั้งคำเชิญและรายการที่รับแล้ว)
  * (เรียกใช้ API: GET /api/experts/judging)
  */
 export const getJudgingContests = () => {
@@ -93,6 +93,21 @@ export const getFishInContest = (contestId) => {
  */
 export const submitCompetitionScore = (submissionId, scoresData) => {
     return apiService.post(`/experts/judging/submissions/${submissionId}/score`, scoresData);
+};
+
+
+// ===================================================================
+// ▼▼▼ [ส่วนที่เพิ่มใหม่] สำหรับ Dynamic Scoring Form ▼▼▼
+// ===================================================================
+
+/**
+ * ดึงเกณฑ์การให้คะแนนจาก Backend ตามประเภทของปลากัด
+ * (เรียกใช้ API: GET /api/experts/scoring-schema/:bettaType)
+ * @param {string} bettaType - ชื่อประเภทของปลากัด
+ */
+export const getScoringSchema = (bettaType) => {
+  // ใช้ encodeURIComponent เพื่อให้แน่ใจว่าชื่อภาษาไทยถูกส่งไปใน URL ได้อย่างถูกต้อง
+  return apiService.get(`/experts/scoring-schema/${encodeURIComponent(bettaType)}`);
 };
 
 
