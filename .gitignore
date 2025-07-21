@@ -1,0 +1,54 @@
+# =========================================
+# Environment Variables
+# ส่วนนี้สำคัญที่สุดสำหรับความปลอดภัย
+# =========================================
+# ไฟล์ Environment Variables ทั้งหมด
+.env
+.env.*
+!/.env.example
+
+# ไฟล์ Environment Variables เฉพาะของ Local
+# (Vite จะใช้ไฟล์นี้ก่อนถ้ามีอยู่)
+.env.local
+.env.*.local
+
+
+# =========================================
+# Dependencies
+# =========================================
+# โฟลเดอร์ที่เก็บ Library ทั้งหมด (ห้ามนำขึ้นเด็ดขาด)
+node_modules
+
+
+# =========================================
+# Build output
+# =========================================
+# โฟลเดอร์ผลลัพธ์จากการ build โปรเจกต์
+dist
+dist-ssr
+
+
+# =========================================
+# Logs
+# =========================================
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+
+# =========================================
+# Editor directories and files
+# =========================================
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

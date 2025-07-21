@@ -1,0 +1,151 @@
+// D:\ProJectFinal\Lasts\my-project\src\Pages\Manager\ContestHistory.jsx (ฉบับขัดเกลาสมบูรณ์แบบที่สุด)
+
+import React, { useState, useEffect, useMemo } from 'react'; // [เพิ่ม] import useMemo
+import { Award, Eye, Calendar, User, XCircle, Search, LoaderCircle, Frown } from 'lucide-react'; // [เพิ่ม] import Frown
+import ManagerMenu from '../../Component/ManagerMenu';
+import Modal from 'react-modal';
+import { toast } from 'react-toastify';
+import { getContestHistory } from '../../services/managerService';
+
+const ContestHistory = () => {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedContest, setSelectedContest] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    Modal.setAppElement('#root');
+
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getContestHistory();
+        setHistory(data || []);
+      } catch (err) {
+        setError("ไม่สามารถดึงประวัติการประกวดได้: " + err.message);
+        toast.error("ไม่สามารถดึงประวัติการประกวดได้");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // [ปรับปรุง] ใช้ useMemo เพื่อประสิทธิภาพ
+  const filteredHistory = useMemo(() => {
+    if (!searchQuery) return history;
+    return history.filter(item =>
+      item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [history, searchQuery]);
+
+  const handleShowDetails = (contest) => {
+    setSelectedContest(contest);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedContest(null);
+  }
+
+  const formatDate = (isoString) => {
+    if (!isoString) return 'N/A';
+    return new Date(isoString).toLocaleDateString('th-TH', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
+  return (
+    <div className="bg-gray-100 min-h-screen">
+      <ManagerMenu />
+      <div className="pt-16 p-4 sm:p-8 w-full">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">ประวัติและผลการประกวด</h1>
+
+        <div className="bg-white shadow-lg rounded-xl p-6">
+          <div className="relative mb-6">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อการประกวดในอดีต..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 transition"
+            />
+          </div>
+
+          {loading && (
+            <div className="text-center py-10 flex flex-col items-center justify-center">
+              <LoaderCircle className="animate-spin text-purple-600" size={40} />
+              <p className="mt-2 text-gray-600">กำลังโหลดประวัติการประกวด...</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="text-center py-10 bg-red-50 text-red-700 rounded-lg"><p>{error}</p></div>
+          )}
+
+          {!loading && !error && (
+            <div className="grid gap-4">
+              {filteredHistory.length > 0 ? filteredHistory.map((item) => {
+                const winner = item.contest_submissions?.[0];
+                return (
+                  <div key={item.id} className="bg-gray-50 border rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between hover:shadow-md transition">
+                    <div className="flex items-center space-x-4">
+                      <Award className={item.status === 'ประกาศผล' ? "text-yellow-500" : "text-gray-400"} size={30} />
+                      <div>
+                        <h3 className="font-semibold text-gray-800 text-lg">{item.name}</h3>
+                        <div className="text-sm text-gray-500 space-y-1 mt-1">
+                          <div className="flex items-center"><Calendar size={14} className="mr-2" /><span>สิ้นสุด: {formatDate(item.end_date)}</span></div>
+                          {winner && item.status === 'ประกาศผล' ? (
+                            <div className="flex items-center font-medium"><User size={14} className="mr-2 text-green-600" /><span>ผู้ชนะ: {winner.profiles?.first_name} ({winner.fish_name})</span></div>
+                          ) : (
+                            <div className="flex items-center"><XCircle size={14} className="mr-2 text-red-500" /><span>สถานะ: {item.status}</span></div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => handleShowDetails(item)} className="mt-3 sm:mt-0 text-purple-600 hover:bg-purple-100 p-2 rounded-lg flex items-center font-semibold">
+                      <Eye size={20} className="mr-2" />
+                      ดูผลสรุป
+                    </button>
+                  </div>
+                )
+              }) : (
+                <div className="text-center py-10 text-gray-500 flex flex-col items-center">
+                  <Frown size={48} className="mb-2" />
+                  <p>ไม่พบประวัติการประกวดที่ตรงกับคำค้นหาของคุณ</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Modal isOpen={isModalOpen} onRequestClose={closeModal} style={{ overlay: { zIndex: 1050 } }} className="fixed inset-0 flex items-center justify-center p-4" overlayClassName="fixed inset-0 bg-black bg-opacity-70">
+          {selectedContest && (
+            <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
+              <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800 transition-colors"><XCircle size={28} /></button>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4 border-b pb-3">{selectedContest.name}</h2>
+              <div className="space-y-4">
+                {(selectedContest.contest_submissions || []).slice(0, 3).map((sub, index) => (
+                  <div key={sub.id} className="bg-gradient-to-r from-gray-100 to-white rounded-lg p-4 border-l-8 flex items-center" style={{ borderColor: ['#FFBF00', '#C0C0C0', '#CD7F32'][index] }}>
+                    <div className="text-5xl font-black mr-4" style={{ color: ['#FFBF00', '#C0C0C0', '#CD7F32'][index] }}>{index + 1}</div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">{sub.fish_name || "ไม่มีชื่อปลา"}</h3>
+                      <p className="text-gray-600"><strong>ผู้เลี้ยง:</strong> {sub.profiles?.first_name} {sub.profiles?.last_name}</p>
+                      <p className="font-semibold text-purple-700">คะแนนรวม: <span className="text-xl">{sub.final_score}</span></p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {(!selectedContest.contest_submissions || selectedContest.contest_submissions.length === 0) && <p className="text-center py-8 text-gray-500">ยังไม่มีข้อมูลผลการตัดสินสำหรับการประกวดนี้</p>}
+            </div>
+          )}
+        </Modal>
+      </div>
+    </div>
+  );
+};
+
+export default ContestHistory;

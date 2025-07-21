@@ -1,0 +1,238 @@
+import React, { useState, useEffect } from "react";
+import ManagerMenu from "../../Component/ManagerMenu";
+import { ImagePlus, Trash2, LoaderCircle } from "lucide-react";
+import { toast } from "react-toastify";
+import { createContestOrNews, getExpertList } from "../../services/managerService";
+
+const BETTA_SUBCATEGORIES = [
+  { id: "A", label: "ปลากัดพื้นบ้านภาคกลางและเหนือ" },
+  { id: "B", label: "ปลากัดพื้นบ้านภาคอีสาน" },
+  { id: "C", label: "ปลากัดพื้นภาคใต้" },
+  { id: "D", label: "ปลากัดพื้นบ้านมหาชัย" },
+  { id: "E", label: "ปลากัดพื้นบ้านภาคตะวันออก" },
+  { id: "F", label: "ปลากัดพื้นบ้านอีสานหางลาย" },
+  { id: "G", label: "ปลากัดป่าพัฒนาสีสัน(รวมทุกประเภท)" },
+  { id: "H", label: "ปลากัดป่ารุ่นจิ๋ว(รวมทุกประเภท ความยาวไม่เกิน 1.2 นิ้ว)" },
+];
+
+const ContestManagement = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const initialFormState = {
+    name: "",
+    short_description: "",
+    full_description: "",
+    category: "การประกวด",
+    status: "draft", // ค่าเริ่มต้นสำหรับ "การประกวด"
+    start_date: "",
+    end_date: "",
+    is_vote_open: false,
+    allowed_subcategories: [],
+    judge_ids: [],
+    posterFile: null,
+    posterPreview: null,
+  };
+  const [formData, setFormData] = useState(initialFormState);
+  const [experts, setExperts] = useState([]);
+  const [loadingExperts, setLoadingExperts] = useState(false);
+
+  useEffect(() => {
+    setLoadingExperts(true);
+    getExpertList()
+      .then(data => setExperts(data || []))
+      .catch(err => toast.error("ไม่สามารถดึงรายชื่อผู้เชี่ยวชาญได้"))
+      .finally(() => setLoadingExperts(false));
+  }, []);
+
+  useEffect(() => {
+    if (formData.category !== 'การประกวด') {
+      setFormData(prev => ({
+        ...prev,
+        status: '', // ไม่ต้องใช้ status
+        start_date: '',
+        end_date: '',
+        is_vote_open: false,
+        allowed_subcategories: [],
+        judge_ids: []
+      }));
+    } else {
+      // เมื่อกลับมาเลือก "การประกวด" ให้ตั้งค่า status เริ่มต้น
+      setFormData(prev => ({
+        ...prev,
+        status: 'draft'
+      }));
+    }
+  }, [formData.category]);
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) return toast.error("ขนาดไฟล์ต้องไม่เกิน 5MB");
+      setFormData(prev => ({ ...prev, posterFile: file, posterPreview: URL.createObjectURL(file) }));
+    }
+  };
+
+  const handleRemoveImage = () => setFormData(prev => ({ ...prev, posterFile: null, posterPreview: null }));
+
+  const handleSubcategoryChange = (subcatId, isChecked) => {
+    setFormData(prev => {
+      const currentArray = prev.allowed_subcategories;
+      const newArray = isChecked ? [...currentArray, subcatId] : currentArray.filter(id => id !== subcatId);
+      return { ...prev, allowed_subcategories: newArray };
+    });
+  };
+
+  const handleJudgeSelection = (event, expertId, isChecked) => {
+    if (isChecked && formData.judge_ids.length >= 3) {
+      event.target.checked = false;
+      return toast.warn("สามารถเลือกกรรมการได้สูงสุด 3 คน");
+    }
+    setFormData(prev => {
+      const currentJudges = prev.judge_ids;
+      const newJudges = isChecked ? [...currentJudges, expertId] : currentJudges.filter(id => id !== expertId);
+      return { ...prev, judge_ids: newJudges };
+    });
+  };
+
+  const handleConfirmSave = async (e) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.posterFile) return toast.error("กรุณากรอกชื่อกิจกรรมและอัปโหลดโปสเตอร์");
+
+    setIsLoading(true);
+    try {
+      const apiFormData = new FormData();
+      apiFormData.append('name', formData.name);
+      apiFormData.append('short_description', formData.short_description);
+      apiFormData.append('full_description', formData.full_description);
+      apiFormData.append('category', formData.category);
+      apiFormData.append('poster', formData.posterFile);
+
+      if (formData.category === 'การประกวด') {
+        if (!formData.start_date || !formData.end_date) {
+          setIsLoading(false);
+          return toast.error("กรุณาเลือกวันที่สำหรับการประกวด");
+        }
+        apiFormData.append('status', formData.status);
+        apiFormData.append('start_date', formData.start_date);
+        apiFormData.append('end_date', formData.end_date);
+        apiFormData.append('is_vote_open', formData.is_vote_open);
+        apiFormData.append('allowed_subcategories', JSON.stringify(formData.allowed_subcategories));
+        apiFormData.append('judge_ids', JSON.stringify(formData.judge_ids));
+      }
+
+      await createContestOrNews(apiFormData);
+      toast.success("สร้างกิจกรรมสำเร็จ!");
+      setFormData(initialFormState);
+    } catch (error) { 
+      toast.error(error.message || "เกิดข้อผิดพลาด"); 
+    } finally { 
+      setIsLoading(false); 
+    }
+  };
+
+  return (
+    <div className="bg-gray-100 min-h-screen">
+      <ManagerMenu />
+      <div className="pt-16 p-4 sm:p-8 w-full">
+        <h1 className="text-3xl font-bold mb-8 text-gray-800">จัดการกิจกรรม (สร้าง)</h1>
+        <form onSubmit={handleConfirmSave} className="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">1. ประเภท:</label>
+              <select name="category" value={formData.category} onChange={handleInputChange} className="w-full p-3 border rounded-md" required>
+                <option value="การประกวด">การประกวด</option>
+                <option value="ข่าวสารทั่วไป">ข่าวสารทั่วไป</option>
+                <option value="ข่าวสารประชาสัมพันธ์">ข่าวสารประชาสัมพันธ์</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-gray-700 font-semibold mb-2">2. ชื่อโครงการ/หัวข้อข่าว:</label>
+              <input type="text" name="name" value={formData.name} onChange={handleInputChange} className="w-full p-3 border rounded-md" required />
+            </div>
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">3. คำอธิบายโดยย่อ:</label>
+            <textarea name="short_description" value={formData.short_description} onChange={handleInputChange} className="w-full p-3 border rounded-md" rows="3" />
+          </div>
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">4. รายละเอียดเต็ม:</label>
+            <textarea name="full_description" value={formData.full_description} onChange={handleInputChange} className="w-full p-3 border rounded-md" rows="6" />
+          </div>
+
+          {/* [แก้ไข] ส่วนนี้จะแสดงก็ต่อเมื่อเลือก Category เป็น "การประกวด" เท่านั้น */}
+          {formData.category === "การประกวด" && (
+            <div className="space-y-6 p-4 border-t-2 border-purple-100">
+              <h2 className="text-xl font-semibold text-purple-700">ส่วนของการประกวด</h2>
+              
+              {/* [เพิ่ม] ฟิลด์สำหรับเลือกสถานะเริ่มต้น */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">5. สถานะเริ่มต้น:</label>
+                <select name="status" value={formData.status} onChange={handleInputChange} className="w-full p-3 border rounded-md bg-gray-50">
+                    <option value="draft">แบบร่าง (Draft - จะยังไม่แสดงให้คนอื่นเห็น)</option>
+                    <option value="กำลังดำเนินการ">เริ่มดำเนินการ (Published - แสดงให้คนอื่นเห็นทันที)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">6. วันที่เริ่มรับสมัคร:</label>
+                  <input type="date" name="start_date" value={formData.start_date} onChange={handleInputChange} className="w-full p-3 border rounded-md" required />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">7. วันที่สิ้นสุดการประกวด:</label>
+                  <input type="date" name="end_date" value={formData.end_date} onChange={handleInputChange} className="w-full p-3 border rounded-md" required />
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">8. ประเภทปลากัดที่เปิดรับ (Subcategories):</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 border rounded-md bg-gray-50 max-h-60 overflow-y-auto">
+                  {BETTA_SUBCATEGORIES.map((sub) => (
+                    <label key={sub.id} className="flex items-center space-x-2"><input type="checkbox" checked={formData.allowed_subcategories.includes(sub.id)} onChange={(e) => handleSubcategoryChange(sub.id, e.target.checked)} /><span>{sub.label}</span></label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">9. เลือกคณะกรรมการ (สูงสุด 3 คน):</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-3 border rounded-md bg-gray-50 max-h-72 overflow-y-auto">
+                  {loadingExperts ? <p className="col-span-full text-center">กำลังโหลด...</p> : experts.map(expert => (
+                    <label key={expert.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-200 cursor-pointer">
+                      <input type="checkbox" className="h-5 w-5 rounded" checked={formData.judge_ids.includes(expert.id)} onChange={e => handleJudgeSelection(e, expert.id, e.target.checked)} disabled={formData.judge_ids.length >= 3 && !formData.judge_ids.includes(expert.id)} />
+                      <div>
+                        <span className="font-medium text-gray-800">{expert.first_name} {expert.last_name}</span>
+                        <span className="block text-xs text-gray-500">{expert.specialities?.join(', ') || 'ทั่วไป'}</span>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-gray-700 font-semibold mb-2">โปสเตอร์กิจกรรม:</label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <input type="file" id="poster-upload" onChange={handleImageChange} className="hidden" accept="image/png, image/jpeg, image/webp" />
+              <label htmlFor="poster-upload" className="cursor-pointer">
+                {formData.posterPreview ? (
+                  <div className="relative inline-block">
+                    <img src={formData.posterPreview} alt="Preview" className="max-h-48 rounded-md" />
+                    <button type="button" onClick={handleRemoveImage} className="absolute -top-2 -right-2 bg-red-600 text-white p-1 rounded-full shadow-lg hover:scale-110 transition-transform"><Trash2 size={16} /></button>
+                  </div>
+                ) : (<div className="text-gray-500 hover:text-purple-600 transition-colors"><ImagePlus size={48} className="mx-auto mb-2" /><p>คลิกเพื่ออัปโหลด (ไม่เกิน 5MB)</p></div>)}
+              </label>
+            </div>
+          </div>
+          <button type="submit" disabled={isLoading} className="w-full bg-purple-600 text-white font-bold py-3 rounded-lg hover:bg-purple-700 transition flex items-center justify-center disabled:bg-purple-300">
+            {isLoading && <LoaderCircle className="animate-spin mr-2" />} {isLoading ? "กำลังสร้างกิจกรรม..." : "บันทึกและสร้างกิจกรรม"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default ContestManagement;
