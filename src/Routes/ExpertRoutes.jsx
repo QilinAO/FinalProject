@@ -1,57 +1,72 @@
-// import React from "react";
-// import ExpertDashboard from "../Pages/Expert/ExpertDashboard";
-// import ExpertProfile from "../Pages/Expert/ExpertProfile";
-// import EvaluationHistory from "../Pages/Expert/EvaluationHistory";
-// import Activities from "../Pages/Expert/Activities";
-// import BettaReviewPage from "../Pages/Expert/BettaFish_ReviewPage";
+// ======================================================================
+// File: D:\ProJectFinal\Lasts\my-project\src\Routes\ExpertRoutes.jsx
+// หน้าที่: กำหนดเส้นทาง (routes) สำหรับส่วนผู้เชี่ยวชาญ ภายใต้ parent path "/expert"
+// - ใช้ React.lazy เพื่อทำ Code Splitting รายหน้า (โหลดเฉพาะเมื่อเข้าหน้านั้นจริง ๆ)
+// - เส้นทางเป็นแบบ relative: "dashboard", "evaluations", "judging", "history", "profile"
+// - <Routes> ใน App.jsx ควรถูกครอบด้วย <Suspense fallback={...}> อยู่แล้ว
+//
+// ตัวอย่างการใช้งานใน App.jsx:
+//
+//   import { Navigate } from "react-router-dom";
+//   import ProtectedRoute from "./Component/ProtectedRoute";
+//   import ExpertLayout from "./Component/ExpertLayout";
+//   import ExpertRoutes from "./Routes/ExpertRoutes";
+//
+//   <Route
+//     path="/expert"
+//     element={
+//       <ProtectedRoute requiredRole="expert">
+//         <ExpertLayout />
+//       </ProtectedRoute>
+//     }
+//   >
+//     {ExpertRoutes.map(({ path, element }) => (
+//       <Route key={path} path={path} element={element} />
+//     ))}
+//     <Route index element={<Navigate to="dashboard" replace />} />
+//   </Route>
+//
+// ======================================================================
 
-// const ExpertRoutes = [
-//     { path: "/expert-dashboard", element: <ExpertDashboard /> },
-//     { path: "/expert/profile", element: <ExpertProfile /> },
-//     { path: "/expert/evaluation-history", element: <EvaluationHistory /> },
-//     { path: "/expert/activities", element: <Activities /> },
-//     { path: "/fishreviewpage", element: <BettaReviewPage /> },
-// ];
+// ----------------------------- Imports --------------------------------
+import React, { lazy } from "react";
 
-// export default ExpertRoutes;
+// ------------------------- Lazy Components ----------------------------
+// หมายเหตุ: ไฟล์ปลายทางเหล่านี้ควรมี default export เป็น React component
+const ExpertDashboard      = lazy(() => import("../Pages/Expert/ExpertDashboard"));
+const EvaluationQueue      = lazy(() => import("../Pages/Expert/EvaluationQueue"));
+const CompetitionJudging   = lazy(() => import("../Pages/Expert/CompetitionJudging"));
+const ExpertHistory        = lazy(() => import("../Pages/Expert/EvaluationHistory"));
+const ExpertProfile        = lazy(() => import("../Pages/Expert/ExpertProfile"));
+const SpecialitiesManagement = lazy(() => import("../Pages/Expert/SpecialitiesManagement"));
 
-
-// src/Routes/ExpertRoutes.js
-
-// import React from "react";
-// import ExpertDashboard from "../Pages/Expert/ExpertDashboard";
-// import ExpertProfile from "../Pages/Expert/ExpertProfile";
-// import EvaluationHistory from "../Pages/Expert/EvaluationHistory";
-// import Activities from "../Pages/Expert/Activities";
-// import BettaReviewPage from "../Pages/Expert/BettaFish_ReviewPage";
-
-// const ExpertRoutes = [
-//     // [แก้ไข] เปลี่ยน Path ทั้งหมดให้เป็นแบบ Relative
-//     { path: "dashboard", element: <ExpertDashboard /> },
-//     { path: "profile", element: <ExpertProfile /> },
-//     { path: "evaluation-history", element: <EvaluationHistory /> },
-//     { path: "activities", element: <Activities /> },
-//     // [แก้ไข] แก้ path นี้ให้สอดคล้องกัน
-//     { path: "fish-review", element: <BettaReviewPage /> },
-// ];
-
-// export default ExpertRoutes;
-
-// src/Routes/ExpertRoutes.js (New File)
-
-import React from "react";
-import ExpertDashboard from "../Pages/Expert/ExpertDashboard";
-import EvaluationQueue from "../Pages/Expert/EvaluationQueue";
-import CompetitionJudging from "../Pages/Expert/CompetitionJudging";
-import ExpertHistory from "../Pages/Expert/EvaluationHistory"; // ใช้ชื่อ EvaluationHistory ไปก่อน
-import ExpertProfile from "../Pages/Expert/ExpertProfile";
-
+// ------------------------ Route Definitions ---------------------------
 const ExpertRoutes = [
-    { path: "dashboard", element: <ExpertDashboard /> },
-    { path: "evaluations", element: <EvaluationQueue /> },
-    { path: "judging", element: <CompetitionJudging /> },
-    { path: "history", element: <ExpertHistory /> },
-    { path: "profile", element: <ExpertProfile /> },
+  {
+    path: "dashboard",
+    element: <ExpertDashboard />,
+  },
+  {
+    path: "evaluations",
+    element: <EvaluationQueue />,
+  },
+  {
+    path: "judging",
+    element: <CompetitionJudging />,
+  },
+  {
+    path: "history",
+    element: <ExpertHistory />,
+  },
+  {
+    path: "profile",
+    element: <ExpertProfile />,
+  },
+  {
+    path: "specialities",
+    element: <SpecialitiesManagement />,
+  },
 ];
 
+// ------------------------------- Export --------------------------------
 export default ExpertRoutes;

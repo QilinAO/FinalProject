@@ -3,6 +3,33 @@ import { Link } from 'react-router-dom';
 import { FaSearch, FaTag } from 'react-icons/fa';
 import apiService from '../../services/api';
 
+// --- คำนวณจำนวนรายการต่อหน้าแบบ responsive ---
+// <640px = 8, 640–1023px = 12, >=1024px = 18
+function computeItemsPerPage(width) {
+  if (width < 640) return 8;       // mobile
+  if (width < 1024) return 12;     // tablet
+  return 18;                       // desktop+
+}
+
+// (optional) mini tests: ช่วยเช็คใน dev console ว่า mapping ถูกต้อง
+(function test_computeItemsPerPage() {
+  const cases = [
+    { w: 375, expect: 8 },
+    { w: 639, expect: 8 },
+    { w: 640, expect: 12 },
+    { w: 900, expect: 12 },
+    { w: 1023, expect: 12 },
+    { w: 1024, expect: 18 },
+    { w: 1440, expect: 18 },
+  ];
+  cases.forEach(({ w, expect }) => {
+    const got = computeItemsPerPage(w);
+    // ไม่ทำให้แอปร่วง แค่เตือนใน console เวลา dev
+    // eslint-disable-next-line no-console
+    console.assert(got === expect, `computeItemsPerPage(${w}) expected ${expect} but got ${got}`);
+  });
+})();
+
 const AllNewsPage = () => {
   // State สำหรับเก็บข้อมูล, สถานะการโหลด, และข้อผิดพลาด
   const [allNews, setAllNews] = useState([]);
@@ -12,7 +39,32 @@ const AllNewsPage = () => {
   // State สำหรับการกรองและการแบ่งหน้า
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12; // แสดง 12 รายการต่อหน้า
+
+  // เปลี่ยนจาก const เป็น state และคำนวณจากขนาดจอ
+  const [itemsPerPage, setItemsPerPage] = useState(() =>
+    typeof window !== 'undefined' ? computeItemsPerPage(window.innerWidth) : 18
+  );
+
+  // อัปเดต itemsPerPage เมื่อมีการปรับขนาดหน้าจอ
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let rAF = null;
+    const onResize = () => {
+      if (rAF) cancelAnimationFrame(rAF);
+      rAF = requestAnimationFrame(() => {
+        setItemsPerPage(prev => {
+          const next = computeItemsPerPage(window.innerWidth);
+          return prev === next ? prev : next;
+        });
+      });
+    };
+    window.addEventListener('resize', onResize, { passive: true });
+    onResize(); // sync ครั้งแรก
+    return () => {
+      if (rAF) cancelAnimationFrame(rAF);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
 
   // useEffect สำหรับดึงข้อมูลข่าวสารจาก API เมื่อ Component โหลด
   useEffect(() => {
@@ -32,16 +84,22 @@ const AllNewsPage = () => {
       }
     };
     fetchNews();
-  }, []); // Dependency array ว่างเปล่า หมายถึงให้ทำงานแค่ครั้งเดียวเมื่อ Component โหลด
+  }, []); // ทำงานครั้งเดียวเมื่อ Component โหลด
 
   // ใช้ useMemo เพื่อกรองข้อมูลอย่างมีประสิทธิภาพ
-  // ฟังก์ชันนี้จะทำงานใหม่ก็ต่อเมื่อ allNews หรือ searchTerm เปลี่ยนแปลง
   const filteredNews = useMemo(() => {
     return allNews.filter((news) =>
-      news.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (news.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (news.short_description || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [allNews, searchTerm]);
+
+  // ถ้า itemsPerPage หรือจำนวนข้อมูลเปลี่ยน ให้ clamp หน้าปัจจุบันให้อยู่ในช่วงที่ถูกต้อง
+  useEffect(() => {
+    const total = Math.max(1, Math.ceil(filteredNews.length / itemsPerPage));
+    if (currentPage > total) setCurrentPage(total);
+    if (currentPage < 1) setCurrentPage(1);
+  }, [itemsPerPage, filteredNews.length, currentPage]);
 
   // --- Logic การแบ่งหน้า (Pagination) ---
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -94,7 +152,8 @@ const AllNewsPage = () => {
                 <p>ไม่พบข่าวสารที่ตรงกับการค้นหาของคุณ</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              // ปรับกริดให้รองรับทุกเบรกพอยต์ (มากขึ้น แสดงได้แน่นขึ้น)
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
                 {currentNews.map((news) => (
                   <article
                     key={news.id}

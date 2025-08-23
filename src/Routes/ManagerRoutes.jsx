@@ -1,55 +1,85 @@
-// D:\ProJectFinal\Lasts\my-project\src\Routes\ManagerRoutes.js (ฉบับสมบูรณ์)
+// ======================================================================
+// File: D:\ProJectFinal\Lasts\my-project\src\Routes\ManagerRoutes.jsx
+// หน้าที่: กำหนดเส้นทาง (routes) สำหรับส่วนผู้จัดการประกวด ภายใต้ parent path "/manager"
+// - ใช้ React.lazy เพื่อทำ Code Splitting รายหน้า (โหลดเมื่อเข้าหน้านั้นจริง ๆ)
+// - เส้นทางเป็นแบบ relative: "dashboard", "profile", "contest-management", ...
+// - ใน App.jsx ควรครอบ <Routes> ด้วย <Suspense fallback={...}> ไว้แล้ว
+//
+// ตัวอย่างการใช้งานใน App.jsx:
+//
+//   import { Navigate } from "react-router-dom";
+//   import ProtectedRoute from "./Component/ProtectedRoute";
+//   import ManagerLayout from "./Component/ManagerLayout";
+//   import ManagerRoutes from "./Routes/ManagerRoutes";
+//
+//   <Route
+//     path="/manager"
+//     element={
+//       <ProtectedRoute requiredRole="manager">
+//         <ManagerLayout />
+//       </ProtectedRoute>
+//     }
+//   >
+//     {ManagerRoutes.map(({ path, element }) => (
+//       <Route key={path} path={path} element={element} />
+//     ))}
+//     <Route index element={<Navigate to="dashboard" replace />} />
+//   </Route>
+//
+// ======================================================================
 
-// --- ส่วนที่ 1: การนำเข้า (Imports) ---
+// ----------------------------- Imports --------------------------------
+import React, { lazy } from "react";
 
-import React from "react";
+// ------------------------- Lazy Components ----------------------------
+// หมายเหตุ: ไฟล์ปลายทางควร export default เป็น React component
+const ManagerDashboard     = lazy(() => import("../Pages/Manager/ManagerDashboard"));
+const ManagerProfile       = lazy(() => import("../Pages/Manager/ManagerProfile"));
+const ContestManagement    = lazy(() => import("../Pages/Manager/ContestManagement"));
+const ContestList          = lazy(() => import("../Pages/Manager/ContestList"));
+const CompetitionResults   = lazy(() => import("../Pages/Manager/CompetitionResults"));
+const ContestHistory       = lazy(() => import("../Pages/Manager/ContestHistory"));
+const AssignJudges         = lazy(() => import("../Pages/Manager/AssignJudges"));
+const LiveContestRoom      = lazy(() => import("../Pages/Manager/LiveContestRoom"));
 
-// นำเข้า Component ของแต่ละหน้าที่เราจะใช้ในส่วนของ Manager
-import ManagerDashboard from "../Pages/Manager/ManagerDashboard";
-import ManagerProfile from "../Pages/Manager/ManagerProfile";
-import ContestManagement from "../Pages/Manager/ContestManagement";
-import ContestList from "../Pages/Manager/ContestList";
-import CompetitionResults from "../Pages/Manager/CompetitionResults";
-import ContestHistory from "../Pages/Manager/ContestHistory";
-
-// [อัปเดต] Import สองหน้าที่ขาดหายไปเข้ามาด้วย
-import AssignJudges from "../Pages/Manager/AssignJudges";
-import LiveContestRoom from "../Pages/Manager/LiveContestRoom";
-
-
-// --- ส่วนที่ 2: การกำหนดเส้นทาง (Route Definitions) ---
-
+// ------------------------ Route Definitions ---------------------------
+// หมายเหตุ:
+// - เส้นทางเป็น "relative" ต่อ "/manager"
+// - สามารถเพิ่ม/ลดรายการได้ตามหน้าใหม่ ๆ ที่สร้างในโฟลเดอร์ Pages/Manager
 const ManagerRoutes = [
-    // [อัปเดต] Path ทั้งหมดถูกเปลี่ยนเป็นแบบ Relative (ไม่มี "/" นำหน้า)
-    // เพื่อให้ไปต่อท้าย Path หลัก "/manager" ที่กำหนดใน App.jsx
-
-    // URL: /manager/dashboard
-    { path: "dashboard", element: <ManagerDashboard /> },
-
-    // URL: /manager/profile
-    { path: "profile", element: <ManagerProfile /> },
-
-    // URL: /manager/contest-management
-    { path: "contest-management", element: <ContestManagement /> },
-
-    // URL: /manager/contest-list
-    { path: "contest-list", element: <ContestList /> },
-
-    // URL: /manager/competition-results
-    { path: "competition-results", element: <CompetitionResults /> },
-
-    // URL: /manager/contest-history
-    { path: "contest-history", element: <ContestHistory /> },
-    
-    // [อัปเดต] เพิ่มสอง Route ที่หายไปใน Array
-    // URL: /manager/assign-judges
-    { path: "assign-judges", element: <AssignJudges /> },
-
-    // URL: /manager/live-room
-    { path: "live-room", element: <LiveContestRoom /> },
+  {
+    path: "dashboard",
+    element: <ManagerDashboard />,
+  },
+  {
+    path: "profile",
+    element: <ManagerProfile />,
+  },
+  {
+    path: "contest-management",
+    element: <ContestManagement />,
+  },
+  {
+    path: "contest-list",
+    element: <ContestList />,
+  },
+  {
+    path: "competition-results",
+    element: <CompetitionResults />,
+  },
+  {
+    path: "contest-history",
+    element: <ContestHistory />,
+  },
+  {
+    path: "assign-judges",
+    element: <AssignJudges />,
+  },
+  {
+    path: "live-room",
+    element: <LiveContestRoom />,
+  },
 ];
 
-
-// --- ส่วนที่ 3: การส่งออก (Export) ---
-
+// ------------------------------- Export --------------------------------
 export default ManagerRoutes;

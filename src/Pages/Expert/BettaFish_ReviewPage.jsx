@@ -1,12 +1,19 @@
-import React, { useState, useEffect } from "react";
-import { Search, Eye, X } from "lucide-react";
-import axios from "axios";
+// D:\ProJectFinal\Lasts\my-project\src\Pages\Expert\BettaFish_ReviewPage.jsx (ฉบับสมบูรณ์)
+
+// --- ส่วนที่ 1: การนำเข้า (Imports) ---
+import React, { useState, useEffect, useMemo } from "react";
+import { Search, Eye, X, LoaderCircle, Frown } from "lucide-react";
+import Modal from 'react-modal';
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// ------------ (A) Schema คะแนน (ตัวอย่าง) ------------
+// [อัปเดต] นำเข้า apiService กลางของโปรเจกต์ และลบ axios ออก
+import apiService from "../../services/api";
+
+// --- ส่วนที่ 2: เกณฑ์การให้คะแนน (Scoring Schemas) ---
+// (ส่วนนี้ไม่มีการเปลี่ยนแปลง)
 const shortFinSingleTailSchema = [
   { key: "head_and_eyes", label: "หัวและตา", max: 5 },
   { key: "body_and_scales", label: "ลำตัวและเกล็ด", max: 5 },
@@ -19,7 +26,6 @@ const shortFinSingleTailSchema = [
   { key: "fighting_ability", label: "การพองสู้", max: 5 },
   { key: "overall_impression", label: "ภาพรวม", max: 25 },
 ];
-
 const shortFinCrowntailSchema = [
   { key: "head_and_eyes", label: "หัวและตา", max: 5 },
   { key: "body_and_scales", label: "ลำตัวและเกล็ด", max: 5 },
@@ -32,7 +38,6 @@ const shortFinCrowntailSchema = [
   { key: "fighting_ability", label: "การพองสู้", max: 5 },
   { key: "overall_impression", label: "ภาพรวม", max: 20 },
 ];
-
 const longFinSchema = [
   { key: "head_and_eyes", label: "หัวและตา", max: 5 },
   { key: "body_and_scales", label: "ลำตัวและเกล็ด", max: 5 },
@@ -45,434 +50,300 @@ const longFinSchema = [
   { key: "fighting_ability", label: "การพองสู้", max: 5 },
   { key: "overall_impression", label: "ภาพรวม", max: 20 },
 ];
-
-// ฟังก์ชันเลือก schema ตาม betta_type
 function getBettaScoringSchema(betta) {
-  if (betta.betta_type === "ฮาร์ฟมูน") {
-    return shortFinSingleTailSchema;
-  } else if (betta.betta_type === "คราวน์เทล") {
-    return shortFinCrowntailSchema;
-  } else {
-    return longFinSchema;
-  }
+  if (betta.betta_type === "ฮาร์ฟมูน") return shortFinSingleTailSchema;
+  if (betta.betta_type === "คราวน์เทล") return shortFinCrowntailSchema;
+  return longFinSchema;
 }
 
-// =====================================================
-// ฟอร์ม "รีวิวปลากัด" (หน้าให้ผู้เชี่ยวชาญประเมิน)
-// =====================================================
+// --- ส่วนที่ 3: Main Component ---
 const BettaReviewPage = () => {
+  // --- State Management ---
+  const [bettaData, setBettaData] = useState([]);
+  const [loading, setLoading] = useState(true); // [เพิ่ม] State สำหรับจัดการสถานะการโหลดข้อมูล
+  const [isSubmitting, setIsSubmitting] = useState(false); // [เพิ่ม] State สำหรับจัดการสถานะการส่งฟอร์ม
+
+  // State สำหรับ Filter และ Sort
   const [searchTerm, setSearchTerm] = useState("");
   const [bettaTypeFilter, setBettaTypeFilter] = useState("");
   const [sortBy, setSortBy] = useState("newest");
 
-  const [bettaData, setBettaData] = useState([]);
+  // State สำหรับ Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedBetta, setSelectedBetta] = useState(null);
-
-  // คะแนนแต่ละหมวด
   const [scores, setScores] = useState({});
 
-  // โหลดข้อมูลครั้งแรก
+  // --- Data Fetching ---
   useEffect(() => {
+    // [อัปเดต] ตั้งค่า Modal root element เพื่อ accessibility
+    Modal.setAppElement('#root');
     fetchAllBettas();
   }, []);
 
-  // (1) โหลดข้อมูลปลากัดจาก backend
   const fetchAllBettas = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get("http://localhost:3000/bettaReviews/all");
-      if (response.data.success) {
-        setBettaData(response.data.data);
-      } else {
-        console.error("Failed to fetch betta data:", response.data.message);
-      }
+      // [อัปเดต] เปลี่ยนมาใช้ apiService และใช้แค่ endpoint
+      const response = await apiService.get("/bettaReviews/all");
+      // [อัปเดต] apiService จะคืนค่า data มาโดยตรง และป้องกันค่า null
+      setBettaData(response || []);
     } catch (error) {
-      console.error("Failed to fetch betta data:", error);
+      toast.error("ไม่สามารถโหลดข้อมูลปลากัดได้: " + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // (2) แสดงสถานะ
-  const renderBettaStatus = (status) => {
-    const statusColors = {
-      "รอการประเมิน": "bg-yellow-100 text-yellow-800",
-      "อนุมัติ": "bg-green-100 text-green-800",
-      "ปฏิเสธ": "bg-red-100 text-red-800",
-      "กำลังดำเนินการ": "bg-cyan-100 text-cyan-800", // เพิ่มสีสำหรับ "กำลังดำเนินการ" ถ้าต้องการ
-    };
-    return (
-      <span
-        className={`px-2 py-1 rounded ${
-          statusColors[status] || "bg-gray-100 text-gray-800"
-        }`}
-      >
-        {status}
-      </span>
-    );
-  };
-
-  // (3) เปิด Modal + reset คะแนน
+  // --- Modal and Form Logic ---
   const openModal = (betta) => {
     setSelectedBetta(betta);
-    // กำหนดค่าเริ่มต้นของ scores เป็น 0 ตาม schema
     const schema = getBettaScoringSchema(betta);
-    const initialScores = {};
-    schema.forEach((cat) => {
-      initialScores[cat.key] = 0;
-    });
+    const initialScores = schema.reduce((acc, cat) => {
+      acc[cat.key] = 0;
+      return acc;
+    }, {});
     setScores(initialScores);
-
     setModalOpen(true);
   };
 
   const closeModal = () => {
-    setSelectedBetta(null);
     setModalOpen(false);
+    setSelectedBetta(null);
   };
 
-  // (4) เปลี่ยนคะแนน
   const handleScoreChange = (key, value) => {
-    // แปลงค่า string -> number (เพราะ input type="number" จะส่งมาเป็น string)
     const numericVal = parseInt(value, 10);
-
     setScores((prev) => ({
       ...prev,
-      [key]: isNaN(numericVal) ? 0 : numericVal, // ถ้า parse ไม่ได้ ให้เป็น 0
+      [key]: isNaN(numericVal) ? 0 : numericVal,
     }));
   };
 
-  // (5) รวมคะแนน
-  const calculateTotalScore = () => {
+  const calculateTotalScore = useMemo(() => {
     if (!selectedBetta) return 0;
-    let sum = 0;
     const schema = getBettaScoringSchema(selectedBetta);
-    schema.forEach((cat) => {
+    return schema.reduce((sum, cat) => {
       const val = scores[cat.key] || 0;
-      sum += val > cat.max ? cat.max : val;
-    });
-    return sum;
-  };
+      return sum + (val > cat.max ? cat.max : val);
+    }, 0);
+  }, [scores, selectedBetta]);
 
-  // (6) ส่งผลประเมิน + อัปเดตสถานะ
   const submitEvaluation = async () => {
     if (!selectedBetta) return;
 
-    // ตรวจว่ากรอกครบ
     const schema = getBettaScoringSchema(selectedBetta);
     for (let cat of schema) {
-      const val = scores[cat.key] || 0;
-      if (val <= 0) {
+      const val = scores[cat.key];
+      if (val === undefined || val <= 0) {
         toast.error(`กรุณากรอกคะแนน (มากกว่า 0) ในหมวด "${cat.label}"`);
         return;
-      } else if (val > cat.max) {
+      }
+      if (val > cat.max) {
         toast.error(`คะแนนหมวด "${cat.label}" เกิน ${cat.max} ซึ่งเป็นค่าสูงสุด`);
         return;
       }
     }
 
-    const total = calculateTotalScore();
-
+    setIsSubmitting(true);
     try {
-      // 6.1) เรียก API สร้างเอกสาร Evaluation
       const body = {
         bettaId: selectedBetta.id,
         scores: scores,
-        totalScore: total,
+        totalScore: calculateTotalScore,
       };
-      const evalResp = await axios.post("http://localhost:3000/evaluations", body);
+      // [อัปเดต] ใช้ apiService.post
+      await apiService.post("/evaluations", body);
 
-      if (!evalResp.data.success) {
-        // หากการประเมินไม่สำเร็จ ให้แจ้ง error และหยุด
-        toast.error("การประเมินล้มเหลว: " + evalResp.data.message);
-        return;
-      }
-
-      // 6.2) อัปเดตสถานะของปลากัด => "กำลังดำเนินการ" (ตัวอย่าง)
-      // สมมติมี endpoint: PATCH http://localhost:3000/bettaReviews/updateStatus
-      const updateResp = await axios.patch("http://localhost:3000/bettaReviews/updateStatus", {
+      // [อัปเดต] ใช้ apiService.patch
+      await apiService.patch("/bettaReviews/updateStatus", {
         bettaId: selectedBetta.id,
         newStatus: "กำลังดำเนินการ",
       });
 
-      if (!updateResp.data.success) {
-        toast.warning("ส่งคะแนนได้ แต่เปลี่ยนสถานะไม่สำเร็จ: " + updateResp.data.message);
-      } else {
-        toast.success("การประเมินสำเร็จและอัปเดตสถานะเรียบร้อย!");
-      }
-
-      // 6.3) ปิด modal และอัปเดต state
+      toast.success("การประเมินสำเร็จและอัปเดตสถานะเรียบร้อย!");
       closeModal();
-
+      // อัปเดตข้อมูลใน State ทันทีเพื่อ UX ที่ดี
       setBettaData((prev) =>
         prev.map((b) =>
           b.id === selectedBetta.id
-            ? { ...b, totalScore: total, status: "กำลังดำเนินการ" }
+            ? { ...b, totalScore: calculateTotalScore, status: "กำลังดำเนินการ" }
             : b
         )
       );
     } catch (err) {
-      console.error("Error submitting evaluation or updating status:", err);
-      toast.error("เกิดข้อผิดพลาดในการส่งผลประเมินหรืออัปเดตสถานะ");
+      toast.error("เกิดข้อผิดพลาด: " + err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // (7) Filter + Sort
-  const filteredBetta = bettaData
-    .filter((b) => {
-      if (!searchTerm.trim()) return true;
-      const text =
-        (b.betta_name || "") +
-        (b.betta_kind || "") +
-        (b.betta_type || "") +
-        (b.ownerId || "") +
-        (b.username || "");
-      return text.toLowerCase().includes(searchTerm.toLowerCase());
-    })
-    .filter((b) => {
-      if (!bettaTypeFilter) return true;
-      return b.betta_type === bettaTypeFilter;
+  // --- Filtering and Sorting ---
+  // [อัปเดต] ใช้ useMemo เพื่อประสิทธิภาพ ป้องกันการคำนวณที่ไม่จำเป็น
+  const filteredAndSortedBettas = useMemo(() => {
+    let result = [...bettaData];
+
+    result = result.filter((b) => {
+      const matchType = !bettaTypeFilter || b.betta_type === bettaTypeFilter;
+      const matchSearch = !searchTerm.trim() ||
+        `${b.betta_name} ${b.betta_kind} ${b.betta_type} ${b.username}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
+      return matchType && matchSearch;
     });
 
-  if (sortBy === "newest") {
-    filteredBetta.sort((a, b) => new Date(b.evaluationDate) - new Date(a.evaluationDate));
-  } else {
-    filteredBetta.sort((a, b) => new Date(a.evaluationDate) - new Date(b.evaluationDate));
-  }
+    result.sort((a, b) => {
+      const dateA = new Date(a.evaluationDate);
+      const dateB = new Date(b.evaluationDate);
+      return sortBy === "newest" ? dateB - dateA : dateA - dateB;
+    });
 
-  // (8) Render
+    return result;
+  }, [bettaData, searchTerm, bettaTypeFilter, sortBy]);
+
+  // --- UI Rendering ---
+  const renderBettaStatus = (status) => {
+    const statusStyles = {
+      "รอการประเมิน": "bg-yellow-100 text-yellow-800",
+      "อนุมัติ": "bg-green-100 text-green-800",
+      "ปฏิเสธ": "bg-red-100 text-red-800",
+      "กำลังดำเนินการ": "bg-cyan-100 text-cyan-800",
+    };
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusStyles[status] || "bg-gray-100"}`}>
+        {status}
+      </span>
+    );
+  };
+
+  // --- Main JSX ---
   return (
     <div className="bg-gray-50 min-h-screen">
-      <div className="pt-20 p-6 w-full space-y-6">
-        <header className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-800">
-            ตรวจสอบข้อมูลปลากัด
-          </h1>
+      <div className="pt-20 p-4 sm:p-6 w-full space-y-6">
+        <header>
+          <h1 className="text-3xl font-bold text-gray-800">ตรวจสอบข้อมูลปลากัด</h1>
         </header>
 
-        {/* Search & Filter */}
-        <section className="bg-white p-6 rounded-lg shadow-md">
-          <div className="grid grid-cols-4 gap-4">
-            {/* ค้นหา */}
+        <section className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="relative">
-              <input
-                type="text"
-                placeholder="ค้นหา..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-              />
-              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+              <input type="text" placeholder="ค้นหา..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
             </div>
-
-            {/* betta_type filter */}
-            <select
-              value={bettaTypeFilter}
-              onChange={(e) => setBettaTypeFilter(e.target.value)}
-              className="w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-            >
+            <select value={bettaTypeFilter} onChange={(e) => setBettaTypeFilter(e.target.value)} className="w-full py-2 px-4 border rounded-lg">
               <option value="">ทุกประเภทปลากัด</option>
               <option value="ฮาร์ฟมูน">ฮาร์ฟมูน</option>
               <option value="คราวน์เทล">คราวน์เทล</option>
               <option value="ปลากัดยักษ์">ปลากัดยักษ์</option>
             </select>
-
-            {/* sortBy */}
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-            >
+            <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="w-full py-2 px-4 border rounded-lg">
               <option value="newest">ใหม่สุด</option>
               <option value="oldest">เก่าสุด</option>
             </select>
-
-            {/* date example */}
-            <input
-              type="date"
-              className="w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
-            />
+            <input type="date" className="w-full py-2 px-4 border rounded-lg" />
           </div>
         </section>
 
-        {/* ตารางข้อมูลปลากัด */}
-        <section className="bg-white rounded-lg shadow-md overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-gray-300 bg-gray-100">
-                <th className="p-4 text-sm font-medium text-gray-700">
-                  ชื่อปลากัด
-                </th>
-                <th className="p-4 text-sm font-medium text-gray-700">
-                  วันที่ส่งมาประเมิน
-                </th>
-                <th className="p-4 text-sm font-medium text-gray-700">
-                  สถานะ
-                </th>
-                <th className="p-4 text-sm font-medium text-gray-700">
-                  เจ้าของ
-                </th>
-                <th className="p-4 text-sm font-medium text-gray-700">
-                  จัดการ
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredBetta.map((betta, idx) => (
-                <tr
-                  key={betta.id}
-                  className={`border-b ${
-                    idx % 2 === 0 ? "bg-gray-50" : "bg-white"
-                  }`}
-                >
-                  <td className="p-4 text-gray-700">{betta.betta_name}</td>
-                  <td className="p-4 text-gray-700">
-                    {betta.evaluationDate
-                      ? new Date(betta.evaluationDate).toLocaleString()
-                      : "-"}
-                  </td>
-                  <td className="p-4">{renderBettaStatus(betta.status)}</td>
-                  <td className="p-4 text-gray-700">
-                    {betta.username || "(NoOwner)"}
-                  </td>
-                  <td className="p-4">
-                    <button
-                      onClick={() => openModal(betta)}
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      <Eye />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <section className="bg-white rounded-lg shadow-md overflow-hidden">
+          {loading ? (
+            <div className="flex justify-center items-center p-10">
+              <LoaderCircle className="animate-spin text-blue-500" size={40} />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-4 text-sm font-medium text-gray-700">ชื่อปลากัด</th>
+                    <th className="p-4 text-sm font-medium text-gray-700">วันที่ส่ง</th>
+                    <th className="p-4 text-sm font-medium text-gray-700">สถานะ</th>
+                    <th className="p-4 text-sm font-medium text-gray-700">เจ้าของ</th>
+                    <th className="p-4 text-sm font-medium text-gray-700">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAndSortedBettas.length > 0 ? (
+                    filteredAndSortedBettas.map((betta) => (
+                      <tr key={betta.id} className="border-t hover:bg-gray-50">
+                        <td className="p-4 text-gray-800 font-medium">{betta.betta_name}</td>
+                        <td className="p-4 text-gray-600">{new Date(betta.evaluationDate).toLocaleDateString('th-TH')}</td>
+                        <td className="p-4">{renderBettaStatus(betta.status)}</td>
+                        <td className="p-4 text-gray-600">{betta.username || "N/A"}</td>
+                        <td className="p-4">
+                          <button onClick={() => openModal(betta)} className="text-blue-600 hover:text-blue-800 p-2 rounded-full hover:bg-blue-100">
+                            <Eye />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="text-center py-16 text-gray-500">
+                        <Frown className="mx-auto mb-2" size={48} />
+                        ไม่พบข้อมูลปลากัดที่ตรงกับเงื่อนไข
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
-        {/* Modal ประเมิน */}
-        {modalOpen && selectedBetta && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-lg w-full max-w-4xl h-full max-h-5xl overflow-auto p-6 relative shadow-lg">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="absolute top-4 right-4 text-gray-600 hover:text-gray-900"
-              >
-                <X size={24} />
-              </button>
+        <Modal isOpen={modalOpen} onRequestClose={closeModal} style={{ overlay: { zIndex: 1050, backgroundColor: 'rgba(0,0,0,0.75)' } }} className="fixed inset-0 flex items-center justify-center p-4">
+          {selectedBetta && (
+            <div className="bg-white rounded-xl shadow-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+              <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-gray-800"><X size={24} /></button>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* ซ้าย: ภาพ/วิดีโอ */}
                 <div>
-                  <h3 className="text-xl font-bold mb-4">สื่อปลากัด</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    {selectedBetta.images?.length > 0 ? (
-                      selectedBetta.images.map((url, i) => (
-                        <img
-                          key={i}
-                          src={url}
-                          alt={`img-${i}`}
-                          className="w-full h-40 object-cover rounded shadow"
-                        />
-                      ))
-                    ) : (
-                      <p className="text-gray-500">ไม่มีรูปภาพ</p>
-                    )}
+                  <h3 className="text-xl font-bold mb-4">สื่อและข้อมูลปลากัด</h3>
+                  <div className="space-y-2 mb-4 text-sm">
+                    <p><strong>ชื่อ:</strong> {selectedBetta.betta_name}</p>
+                    <p><strong>ประเภท:</strong> {selectedBetta.betta_type}</p>
+                    <p><strong>ชนิด:</strong> {selectedBetta.betta_kind}</p>
+                    <p><strong>อายุ:</strong> {selectedBetta.betta_age}</p>
+                    <p><strong>เจ้าของ:</strong> {selectedBetta.username}</p>
                   </div>
-                  {selectedBetta.video ? (
-                    <video
-                      controls
-                      src={selectedBetta.video}
-                      className="w-full rounded shadow"
-                    />
-                  ) : (
-                    <p className="text-gray-500">ไม่มีวิดีโอ</p>
-                  )}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    {selectedBetta.images?.map((url, i) => <img key={i} src={url} alt={`img-${i}`} className="w-full h-40 object-cover rounded shadow" />)}
+                  </div>
+                  {selectedBetta.video && <video controls src={selectedBetta.video} className="w-full rounded shadow" />}
                 </div>
-
-                {/* ขวา: ฟอร์มประเมิน + ฟิลด์ปลากัด */}
                 <div>
-                  <h2 className="text-2xl font-bold mb-4">แบบประเมินปลากัด</h2>
-                  <p className="mb-1">
-                    <strong>ชื่อปลากัด:</strong> {selectedBetta.betta_name}
-                  </p>
-                  <p className="mb-1">
-                    <strong>ประเภท:</strong> {selectedBetta.betta_type}
-                  </p>
-                  <p className="mb-1">
-                    <strong>ชนิด:</strong> {selectedBetta.betta_kind}
-                  </p>
-                  <p className="mb-1">
-                    <strong>อายุ:</strong> {selectedBetta.betta_age}
-                  </p>
-                  <p className="mb-1">
-                    <strong>ขนาด:</strong> {selectedBetta.betta_size}
-                  </p>
-                  <p className="mb-1">
-                    <strong>เจ้าของ (username):</strong>{" "}
-                    {selectedBetta.username}
-                  </p>
-                  <p className="mb-4">
-                    <strong>evaluationDate:</strong>{" "}
-                    {selectedBetta.evaluationDate
-                      ? new Date(selectedBetta.evaluationDate).toLocaleString()
-                      : "-"}
-                  </p>
-
-                  {/* หมวดคะแนน (แบบกรอก input[type="number"]) */}
-                  {getBettaScoringSchema(selectedBetta).map((cat) => (
-                    <ScoreInput
-                      key={cat.key}
-                      category={cat}
-                      value={scores[cat.key] || 0}
-                      onChange={(val) => handleScoreChange(cat.key, val)}
-                    />
-                  ))}
-
+                  <h2 className="text-2xl font-bold mb-4">แบบประเมิน</h2>
+                  <div className="space-y-3">
+                    {getBettaScoringSchema(selectedBetta).map((cat) => (
+                      <ScoreInput key={cat.key} category={cat} value={scores[cat.key] || 0} onChange={(val) => handleScoreChange(cat.key, val)} />
+                    ))}
+                  </div>
                   <div className="mt-6 border-t pt-4">
                     <div className="flex justify-between items-center">
-                      <strong>คะแนนรวม:</strong>
-                      <span className="text-xl font-bold">
-                        {calculateTotalScore()} / 100
-                      </span>
+                      <strong className="text-lg">คะแนนรวม:</strong>
+                      <span className="text-2xl font-bold text-blue-600">{calculateTotalScore} / 100</span>
                     </div>
-                    <button
-                      onClick={submitEvaluation}
-                      className="w-full mt-4 bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200"
-                    >
-                      ส่งผลการประเมิน
+                    <button onClick={submitEvaluation} disabled={isSubmitting} className="w-full mt-4 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center disabled:bg-blue-300">
+                      {isSubmitting && <LoaderCircle className="animate-spin mr-2" />}
+                      {isSubmitting ? "กำลังส่งผล..." : "ส่งผลการประเมิน"}
                     </button>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </Modal>
 
         <Tooltip />
-        <ToastContainer />
+        <ToastContainer position="bottom-right" autoClose={4000} />
       </div>
     </div>
   );
 };
 
-// =======================================================
-// Component รับคะแนน (ScoreInput) - ใช้ <input type="number" />
-// =======================================================
+// --- ส่วนที่ 4: Sub-component ---
 function ScoreInput({ category, value, onChange }) {
-  const handleChange = (e) => {
-    onChange(e.target.value); // ส่ง value กลับไป
-  };
-
   return (
-    <div className="flex items-center space-x-4 mb-3">
-      <label className="w-52 font-medium text-gray-700">
-        {category.label} (สูงสุด {category.max})
-      </label>
-      <input
-        type="number"
-        min="0"
-        max={category.max}
-        value={value}
-        onChange={handleChange}
-        className="w-24 px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
-      />
+    <div className="flex items-center justify-between gap-4">
+      <label className="font-medium text-gray-700 text-sm">{category.label} (สูงสุด {category.max})</label>
+      <input type="number" min="0" max={category.max} value={value} onChange={(e) => onChange(e.target.value)} className="w-24 px-2 py-1 border rounded text-center" />
     </div>
   );
 }

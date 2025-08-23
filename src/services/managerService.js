@@ -1,79 +1,153 @@
+// D:\ProJectFinal\Lasts\my-project\src\services\managerService.js
 import apiService from './api';
 
-// ========================================================
-// Dashboard & Profile
-// ========================================================
-export const getDashboardStats = () => {
-  return apiService.get('/manager/dashboard/stats');
+const unwrap = (res, fallbackMessage) => {
+  if (res && typeof res === 'object' && 'success' in res) {
+    if (res.success) return res.data ?? null;
+    throw new Error(res.error || fallbackMessage);
+  }
+  if (res === undefined || res === null) return null;
+  return res;
 };
 
-/**
- * [เพิ่มใหม่] ดึงข้อมูลทั้งหมดสำหรับหน้าโปรไฟล์ของผู้จัดการ
- */
-export const getManagerProfileDashboard = () => {
-  return apiService.get('/manager/profile-dashboard');
-};
+/* ===== Dashboard & Profile ===== */
+export async function getDashboardStats() {
+  const res = await apiService.get('/manager/dashboard/stats');
+  return unwrap(res, 'โหลดสถิติล้มเหลว');
+}
 
+export async function getManagerProfileDashboard() {
+  const res = await apiService.get('/manager/profile-dashboard');
+  return unwrap(res, 'โหลดข้อมูลโปรไฟล์ผู้จัดการล้มเหลว');
+}
 
-// ========================================================
-// Contest & News Management (CRUD)
-// ========================================================
-export const createContestOrNews = (formData) => {
-  return apiService.post('/manager/contests', formData);
-};
+/* ===== Contest & News (CRUD) ===== */
+export async function createContestOrNews(formData) {
+  const res = await apiService.post('/manager/contests', formData);
+  return unwrap(res, 'สร้างกิจกรรมล้มเหลว');
+}
 
-export const getMyContests = () => {
-  return apiService.get('/manager/contests');
-};
+export async function getMyContests() {
+  const res = await apiService.get('/manager/contests');
+  return unwrap(res, 'โหลดรายการกิจกรรมล้มเหลว');
+}
 
-export const updateMyContest = (contestId, dataToUpdate) => {
-  return apiService.put(`/manager/contests/${contestId}`, dataToUpdate);
-};
+export async function updateMyContest(contestId, data) {
+  const res = await apiService.put(`/manager/contests/${contestId}`, data);
+  return unwrap(res, 'อัปเดตการประกวดล้มเหลว');
+}
 
-export const deleteMyContest = (contestId) => {
-  return apiService.delete(`/manager/contests/${contestId}`);
-};
+export async function deleteMyContest(contestId) {
+  const res = await apiService.delete(`/manager/contests/${contestId}`);
+  return unwrap(res, 'ลบการประกวดล้มเหลว');
+}
 
+/* ===== Live Contest Room & Flow Control ===== */
+export async function getContestSubmissions(contestId) {
+  const res = await apiService.get(`/manager/contests/${contestId}/submissions`);
+  return unwrap(res, 'โหลดรายชื่อผู้สมัครล้มเหลว');
+}
 
-// ========================================================
-// Judge & Submission Management (ในห้อง Live)
-// ========================================================
-export const getContestSubmissions = (contestId) => {
-    return apiService.get(`/manager/contests/${contestId}/submissions`);
-};
+export async function updateSubmissionStatus(submissionId, status, reason) {
+  const payload = reason ? { status, reason } : { status };
+  const res = await apiService.put(`/manager/submissions/${submissionId}/status`, payload);
+  return unwrap(res, 'อัปเดตสถานะผู้สมัครล้มเหลว');
+}
 
-export const updateSubmissionStatus = (submissionId, status) => {
-    return apiService.put(`/manager/submissions/${submissionId}/status`, { status });
-};
+export async function updateContestStatus(contestId, status) {
+  const res = await apiService.put(`/manager/contests/${contestId}/status`, { status });
+  return unwrap(res, 'อัปเดตสถานะกิจกรรมล้มเหลว');
+}
 
-export const getExpertList = () => {
-    return apiService.get('/manager/experts');
-};
+export async function finalizeContest(contestId) {
+  const res = await apiService.post(`/manager/contests/${contestId}/finalize`);
+  return unwrap(res, 'ประกาศผลล้มเหลว');
+}
 
-export const assignJudgeToContest = (contestId, judgeId) => {
-    return apiService.post(`/manager/contests/${contestId}/judges`, { judgeId });
-};
+/* ===== Approve / Reject single submission ===== */
+export async function approveContestSubmission(contestId, submissionId) {
+  const res = await apiService.post(
+    `/manager/contests/${contestId}/submissions/${submissionId}/approve`
+  );
+  return unwrap(res, 'อนุมัติรายการล้มเหลว');
+}
 
-export const removeJudgeFromContest = (contestId, judgeId) => {
-    return apiService.delete(`/manager/contests/${contestId}/judges/${judgeId}`);
-};
+export async function rejectContestSubmission(contestId, submissionId, reason) {
+  const res = await apiService.post(
+    `/manager/contests/${contestId}/submissions/${submissionId}/reject`,
+    { reason }
+  );
+  return unwrap(res, 'ปฏิเสธรายการล้มเหลว');
+}
 
+/* ===== Judges ===== */
+export async function getExpertList() {
+  const res = await apiService.get('/manager/experts');
+  return unwrap(res, 'โหลดรายชื่อผู้เชี่ยวชาญล้มเหลว');
+}
 
-// ========================================================
-// Finalization & History
-// ========================================================
-export const finalizeContest = (contestId) => {
-    return apiService.post(`/manager/contests/${contestId}/finalize`);
-};
+export async function assignJudgeToContest(contestId, judgeId) {
+  const res = await apiService.post(`/manager/contests/${contestId}/judges`, { judgeId });
+  return unwrap(res, 'มอบหมายกรรมการล้มเหลว');
+}
 
-export const getContestHistory = () => {
-    return apiService.get('/manager/history');
-};
+export async function removeJudgeFromContest(contestId, judgeId) {
+  const res = await apiService.delete(`/manager/contests/${contestId}/judges/${judgeId}`);
+  return unwrap(res, 'ปลดกรรมการล้มเหลว');
+}
 
-export const getAllResults = () => {
-    return apiService.get('/manager/results/all');
-};
+/* ===== History & Results ===== */
+export async function getContestHistory() {
+  const res = await apiService.get('/manager/history');
+  return unwrap(res, 'โหลดประวัติการประกวดล้มเหลว');
+}
 
-export const getScoresForSubmission = (submissionId) => {
-    return apiService.get(`/manager/submissions/${submissionId}/scores`);
+export async function getAllResults() {
+  const res = await apiService.get('/manager/results/all');
+  return unwrap(res, 'โหลดผลคะแนนทั้งหมดล้มเหลว');
+}
+
+export async function getScoresForSubmission(submissionId) {
+  const res = await apiService.get(`/manager/submissions/${submissionId}/scores`);
+  return unwrap(res, 'โหลดคะแนนของผู้สมัครล้มเหลว');
+}
+
+/* ===== Notifications (manager scope) ===== */
+export async function listManagerNotifications(query = {}) {
+  const res = await apiService.get('/manager/notifications', { query });
+  return unwrap(res, 'โหลดศูนย์แจ้งเตือนล้มเหลว');
+}
+
+export async function markNotificationRead(notificationId) {
+  const res = await apiService.patch(`/manager/notifications/${notificationId}/read`);
+  return unwrap(res, 'อัปเดตสถานะแจ้งเตือนล้มเหลว');
+}
+
+export async function markAllNotificationsRead() {
+  const res = await apiService.patch('/manager/notifications/read-all');
+  return unwrap(res, 'อ่านแจ้งเตือนทั้งหมดล้มเหลว');
+}
+
+export default {
+  getDashboardStats,
+  getManagerProfileDashboard,
+  createContestOrNews,
+  getMyContests,
+  updateMyContest,
+  deleteMyContest,
+  getContestSubmissions,
+  updateSubmissionStatus,
+  updateContestStatus,
+  finalizeContest,
+  approveContestSubmission,
+  rejectContestSubmission,
+  getExpertList,
+  assignJudgeToContest,
+  removeJudgeFromContest,
+  getContestHistory,
+  getAllResults,
+  getScoresForSubmission,
+  listManagerNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
 };

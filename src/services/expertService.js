@@ -123,3 +123,28 @@ export const getScoringSchema = (bettaType) => {
 export const getExpertHistory = (type) => {
   return apiService.get(`/experts/history?type=${type}`);
 };
+
+/**
+ * ดึงความเชี่ยวชาญของผู้เชี่ยวชาญ
+ * (เรียกใช้ API: GET /api/experts/specialities)
+ */
+export const getSpecialities = () => {
+  return apiService.get('/experts/specialities');
+};
+
+/**
+ * อัปเดตความเชี่ยวชาญของผู้เชี่ยวชาญ
+ * @param {Object} data - ข้อมูลความเชี่ยวชาญ
+ * (เรียกใช้ API: PUT /api/experts/specialities)
+ */
+export const updateSpecialities = (data) => {
+  return apiService.put('/experts/specialities', data);
+};
+
+/**
+ * ดึงคำแนะนำความเชี่ยวชาญ
+ * (เรียกใช้ API: GET /api/experts/specialities/suggestions)
+ */
+export const getSpecialitiesSuggestions = () => {
+  return apiService.get('/experts/specialities/suggestions');
+};

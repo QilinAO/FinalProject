@@ -1,93 +1,164 @@
-// D:\ProJectFinal\Lasts\my-project\src\context\AuthContext.jsx (ฉบับสมบูรณ์)
+// D:\ProJectFinal\Lasts\my-project\src\context\AuthContext.jsx
+// (ฉบับสมบูรณ์: กู้คืนเซสชัน, ฟัง 401 อัตโนมัติ, ซิงก์หลายแท็บ, พร้อมเมธอด signin/signout)
 
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  useCallback,
+  useRef,
+} from 'react';
 import { LoaderCircle } from 'lucide-react';
+
+import apiService from '../services/api';
 import {
-    loginUser,
-    signoutUser,
-    isAuthenticated as isTokenValid, // ตั้งชื่อใหม่ให้ชัดเจนว่าเป็นการเช็ค token ในเครื่อง
-    getStoredUserProfile
+  // core auth flows
+  loginUser,
+  signoutUser,
+  // storage helpers
+  isAuthenticated as hasStoredToken,
+  getStoredUserProfile,
+  setAuthUser,
+  getAccessToken,
 } from '../services/authService';
 
-// 1. สร้าง Context object ขึ้นมา
-// เปรียบเสมือนการสร้าง "ช่องสัญญาณ" กลางสำหรับข้อมูลการยืนยันตัวตน
+// --------------------------- Context Factory ---------------------------
 const AuthContext = createContext(null);
+AuthContext.displayName = 'AuthContext';
 
-// 2. สร้าง Provider Component
-// Component นี้จะทำหน้าที่เป็น "ผู้ส่งสัญญาณ" หรือผู้จัดการข้อมูลทั้งหมด
-// เราจะนำ Component นี้ไปห่อหุ้ม App ทั้งหมดในไฟล์ main.jsx
+// ------------------------------ Provider -------------------------------
 export const AuthProvider = ({ children }) => {
-  // --- State ---
-
-  // user: State สำหรับเก็บข้อมูล profile ของผู้ใช้ที่ login อยู่ (เช่น id, name, email, role)
-  // หากไม่มีใคร login ค่าจะเป็น null
+  // โปรไฟล์ผู้ใช้ (null = ยังไม่ล็อกอิน)
   const [user, setUser] = useState(null);
-
-  // loading: State สำหรับบอกว่า Context กำลังตรวจสอบ session เริ่มต้นอยู่หรือไม่
-  // สำคัญมาก! เพื่อป้องกันการกระพริบของหน้าจอตอนเปิดแอป
+  // สถานะกำลังกู้คืนเซสชันตอนโหลดแอปครั้งแรก
   const [loading, setLoading] = useState(true);
 
-  // --- Effect ---
+  // เก็บ AbortController สำหรับงาน async ตอนกู้คืนโปรไฟล์
+  const initAbortRef = useRef(null);
 
-  // useEffect นี้จะทำงานแค่ "ครั้งเดียว" ตอนที่แอปพลิเคชันเริ่มทำงานครั้งแรก
-  // เพื่อตรวจสอบว่ามี session ของผู้ใช้ค้างอยู่ใน localStorage หรือไม่
-  useEffect(() => {
-    try {
-      // เรียกใช้ฟังก์ชันจาก authService เพื่อดูว่ามี 'authToken' ใน localStorage หรือไม่
-      if (isTokenValid()) {
-        // ถ้ามี token, ให้ดึงข้อมูล profile ที่เคยบันทึกไว้ออกมา
-        const storedProfile = getStoredUserProfile();
-        if (storedProfile) {
-          // ถ้ามีข้อมูล profile, ให้ตั้งค่า user state เพื่อให้แอปเข้าสู่สถานะ "ล็อกอินแล้ว" ทันที
-          setUser(storedProfile);
-        }
-      }
-    } catch (error) {
-      console.error("Could not restore user session:", error);
-      // ถ้าเกิดข้อผิดพลาดในการกู้คืน session (เช่น ข้อมูลใน localStorage เสียหาย)
-      // ให้ทำการ logout เพื่อเคลียร์ข้อมูลที่อาจมีปัญหาทิ้งไปเลย
-      signoutUser();
-    } finally {
-      // ไม่ว่าจะสำเร็จหรือล้มเหลว สุดท้ายต้องตั้งค่า loading เป็น false
-      // เพื่อบอกให้แอปพลิเคชันเริ่มแสดงผลหน้าเว็บได้
-      setLoading(false);
+  /**
+   * กู้คืนเซสชันจาก localStorage:
+   * - ถ้ามี token → พยายามอ่าน profile จาก localStorage ก่อน
+   * - ถ้าไม่มี profile → ยิง /auth/profile เพื่อดึงของจริง แล้ว cache ลง localStorage
+   * - ถ้าไม่มี token → เคลียร์ user ให้เป็น null
+   */
+  const restoreSession = useCallback(async () => {
+    if (!hasStoredToken()) {
+      setUser(null);
+      return;
     }
-  }, []); // dependency array ว่างเปล่า [] หมายถึงให้ทำงานแค่ครั้งเดียว
 
-  // --- Functions ที่จะส่งต่อให้ Component อื่นๆ ---
+    // 1) พยายามอ่านจาก localStorage (เร็วกว่า)
+    const cached = getStoredUserProfile();
+    if (cached && typeof cached === 'object') {
+      setUser(cached);
+      return;
+    }
 
-  // ฟังก์ชันสำหรับ "เข้าสู่ระบบ"
-  const signin = async (email, password) => {
+    // 2) ไม่มี cache → ลองขอจาก backend (เงียบ ๆ ไม่ต้อง error ดัง)
     try {
-        // เรียกใช้ service, ซึ่งจะจัดการเรื่องการเรียก API และการเก็บ token/profile ลง localStorage
-        const { profile } = await loginUser(email, password);
+      // เผื่อผู้ใช้เปิดหน้าไว้นานแต่ยังมี token ใช้การได้
+      const controller = new AbortController();
+      initAbortRef.current = controller;
 
-        // เมื่อสำเร็จ, ให้อัปเดต user state ใน context
-        // การทำเช่นนี้จะทำให้ทุก Component ในแอปที่ใช้ useAuth() รับรู้ทันทีว่ามีคน login เข้ามาใหม่
-        setUser(profile);
-
-        // คืนค่า profile ให้ Component ที่เรียกใช้ (เช่น หน้า Login) นำไปใช้ต่อได้ทันที (เช่นการ redirect ตาม role)
-        return { profile };
-    } catch (error) {
-        // หากการ login ล้มเหลว ให้เคลียร์ user state เพื่อความปลอดภัย และโยน error ต่อไปให้หน้า Login จัดการ
+      const res = await apiService.get('/auth/profile', { signal: controller.signal });
+      if (res?.success && res?.profile) {
+        setAuthUser(res.profile); // cache ไว้
+        setUser(res.profile);
+      } else {
+        // โปรไฟล์ไม่เจอแต่มี token → ถือว่าไม่สมบูรณ์ เคลียร์สถานะ
+        setAuthUser(null);
         setUser(null);
-        throw error;
+      }
+    } catch {
+      // ถ้า error (เช่น token ใช้ไม่ได้แล้ว) → ถือว่าไม่ได้ล็อกอิน
+      setAuthUser(null);
+      setUser(null);
+    } finally {
+      initAbortRef.current = null;
+    }
+  }, []);
+
+  // ทำงานครั้งแรกเมื่อ mount: กู้คืนเซสชัน
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        await restoreSession();
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+      if (initAbortRef.current) {
+        try { initAbortRef.current.abort(); } catch {}
+      }
+    };
+  }, [restoreSession]);
+
+  /**
+   * ฟัง 401/403 จาก apiService แล้ว logout อัตโนมัติ (เช่น token หมดอายุ)
+   * - apiService จะเรียก callback นี้เมื่อเจอ 401/403
+   */
+  useEffect(() => {
+    const handleUnauthorized = async () => {
+      try {
+        await signoutUser();
+      } finally {
+        setUser(null);
+      }
+    };
+    apiService.setOnUnauthorized(handleUnauthorized);
+    return () => apiService.setOnUnauthorized(null);
+  }, []);
+
+  /**
+   * ซิงก์ login/logout/แก้โปรไฟล์ ข้ามแท็บด้วย storage event
+   * - ถ้า access_token หรือ user_profile เปลี่ยน → เรียก restoreSession()
+   * - รองรับคีย์ legacy 'authToken' ด้วย
+   */
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (!e) return;
+      const keysToWatch = ['access_token', 'user_profile', 'authToken']; // legacy
+      if (keysToWatch.includes(e.key)) {
+        restoreSession();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [restoreSession]);
+
+  // ---------------------------- API: signin ----------------------------
+  /**
+   * เข้าสู่ระบบ
+   * - เรียก /auth/signin ผ่าน authService
+   * - เก็บ token+profile แล้วตั้ง user ใน state
+   */
+  const signin = async (email, password) => {
+    const { profile } = await loginUser(email, password);
+    setUser(profile || null);
+    return { profile };
+  };
+
+  // ---------------------------- API: signout ---------------------------
+  /**
+   * ออกจากระบบ
+   * - ล้าง token+profile ที่ localStorage
+   * - เคลียร์ state user
+   */
+  const signout = async () => {
+    try {
+      await signoutUser();
+    } finally {
+      setUser(null);
     }
   };
 
-  // ฟังก์ชันสำหรับ "ออกจากระบบ"
-  const signout = async () => {
-    // เรียกใช้ service เพื่อเคลียร์ token/profile จาก localStorage
-    await signoutUser();
-    // อัปเดต user state ใน context ให้เป็น null, ทั่วทั้งแอปจะรับรู้และกลับสู่สถานะ "ยังไม่ login"
-    setUser(null);
-  };
-
-  // --- Render Logic ---
-
-  // ถ้า Context ยังอยู่ในสถานะ loading (กำลังตรวจสอบ session เริ่มต้น)
-  // ให้แสดงหน้า loading แบบเต็มจอกลางหน้าจอ
-  // นี่คือส่วนที่ช่วยป้องกันการ "กระพริบ" (เช่น แสดงหน้า login แว่บหนึ่งก่อนจะเปลี่ยนเป็นหน้า dashboard)
+  // --------------------------- Render Guard ----------------------------
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -96,22 +167,28 @@ export const AuthProvider = ({ children }) => {
     );
   }
 
-  // เมื่อ loading เสร็จแล้ว, ให้ส่งค่าทั้งหมดที่ Component อื่นๆ จำเป็นต้องใช้ผ่าน Provider
-  // โดยค่าที่ส่งไปคือ object ที่มี user, isAuthenticated, loading, signin, และ signout
+  // ----------------------------- Provider ------------------------------
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, signin, signout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user && !!getAccessToken(), // มีทั้ง user และ token
+        loading,
+        signin,
+        signout,
+        setUser, // เผื่อหน้าโปรไฟล์แก้ไขข้อมูลแล้วอยาก sync state
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 
-// 3. สร้าง Custom Hook
-// เพื่อให้ Component อื่นๆ สามารถดึงข้อมูลจาก Context ไปใช้งานได้ง่ายและปลอดภัย
+// ------------------------------ Hook ใช้งาน ---------------------------
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  // ตรวจสอบเพื่อให้แน่ใจว่า Component ที่เรียกใช้ useAuth() อยู่ภายใต้ AuthProvider
-  if (!context) {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context;
+  return ctx;
 };
