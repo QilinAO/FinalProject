@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Clock, Award, Star, ArrowRight, Play, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import apiService from "../../services/api";
 
@@ -87,76 +87,249 @@ const HomePage = () => {
 
   // --- Render ---
   return (
-    <main className="bg-gradient-to-b from-pink-100 via-red-100 to-purple-200 py-12 md:py-14">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <main className="page-container">
+      {/* Hero Section */}
+      <section className="page-hero">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="page-hero-content">
+          <div className="text-center max-w-5xl mx-auto">
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-8">
+              ยินดีต้อนรับสู่
+              <span className="block bg-gradient-to-r from-yellow-300 to-orange-300 bg-clip-text text-transparent mt-2">
+                BettaFish Platform
+              </span>
+            </h1>
+            <p className="text-2xl md:text-3xl leading-relaxed mb-12 text-white/95 font-medium">
+              ระบบจัดการปลากัดที่ครบครันที่สุด
+              <br className="hidden sm:block" />
+              พร้อมผู้เชี่ยวชาญมืออาชีพ
+            </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <Link to="/evaluate" className="inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-white to-gray-100 text-purple-700 font-bold text-xl rounded-2xl shadow-2xl hover:scale-105 transition-all duration-300">
+                <Award className="h-6 w-6" />
+                ส่งปลากัดเข้าประกวด
+              </Link>
+              <Link to="/contest" className="inline-flex items-center gap-3 px-10 py-5 bg-white/20 backdrop-blur-sm border-2 border-white/30 text-white font-bold text-xl rounded-2xl hover:bg-white/30 transition-all duration-300">
+                <Play className="h-6 w-6" />
+                ดูการประกวด
+              </Link>
+            </div>
+          </div>
+        </div>
+        
+        {/* Decorative Elements */}
+        <div className="absolute top-20 left-20 w-40 h-40 bg-white/5 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-32 right-32 w-60 h-60 bg-white/5 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-1/2 left-1/4 w-32 h-32 bg-white/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '2s'}}></div>
+      </section>
 
+      <div className="page-main">
         {/* Section 1: Carousel กิจกรรม/การประกวด */}
-        <section className="relative">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-8 text-purple-700">
-            กิจกรรมที่กำลังดำเนินอยู่
-          </h2>
-          {loadingCarousel && <p className="text-center">กำลังโหลดกิจกรรม...</p>}
-          {errorCarousel && <p className="text-center text-red-500">{errorCarousel}</p>}
-          {!loadingCarousel && !errorCarousel && (
-            <div className="relative flex items-center justify-center mt-4">
-              <button onClick={prevPoster} className="absolute left-3 z-20 bg-white/70 p-3 rounded-full shadow-md hover:scale-110 transition-transform"><ChevronLeft /></button>
-              <div className="w-full max-w-screen-xl relative overflow-hidden rounded-xl shadow-lg aspect-video">
-                {carouselItems.length > 0 ? (
-                  <div className="flex transition-transform duration-700" style={{ transform: `translateX(-${currentPosterIndex * 100}%)` }}>
-                    {carouselItems.map((item) => (
-                      <div key={item.id} className="w-full flex-shrink-0 relative group">
-                        <Link to={`/contest/${item.id}`}>
-                          <img src={item.poster_url} alt={item.name} className="w-full h-full object-cover bg-gray-200" />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 p-4 flex items-end">
-                            <h3 className="text-white text-xl font-bold">{item.name}</h3>
-                          </div>
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center bg-gray-300 w-full h-full"><p>ไม่พบกิจกรรมที่กำลังดำเนินอยู่</p></div>
-                )}
+        <section className="page-section">
+          <div className="container-responsive">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
+                🎯 กิจกรรมที่กำลังดำเนินอยู่
+              </h2>
+              <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                ติดตามกิจกรรมการประกวดปลากัดล่าสุด และร่วมเป็นส่วนหนึ่งของชุมชนคนรักปลากัด
+              </p>
+            </div>
+
+          {loadingCarousel && (
+            <div className="loading-container">
+              <div className="loading-spinner-primary"></div>
+              <span className="ml-4 text-lg text-muted">กำลังโหลดกิจกรรม...</span>
+            </div>
+          )}
+
+          {errorCarousel && (
+            <div className="empty-state">
+              <div className="betta-card max-w-md mx-auto">
+                <p className="text-error-600 text-lg">{errorCarousel}</p>
               </div>
-              <button onClick={nextPoster} className="absolute right-3 z-20 bg-white/70 p-3 rounded-full shadow-md hover:scale-110 transition-transform"><ChevronRight /></button>
             </div>
           )}
-          {carouselItems.length > 1 && (
-            <div className="flex justify-center mt-6">
-              {carouselItems.map((_, index) => (
-                <button key={index} onClick={() => { setCurrentPosterIndex(index); handleUserInteraction(); }} className={`w-3 h-3 mx-1.5 rounded-full transition-all ${index === currentPosterIndex ? "bg-purple-600 w-6" : "bg-gray-300"}`} />
-              ))}
+
+          {!loadingCarousel && !errorCarousel && (
+            <div className="relative">
+              <div className="relative flex items-center justify-center">
+                {/* Navigation Buttons */}
+                {carouselItems.length > 1 && (
+                  <>
+                    <button 
+                      onClick={prevPoster} 
+                      className="absolute left-4 lg:left-8 z-20 btn-ghost bg-white/90 hover:bg-white p-3 rounded-full shadow-large hover:scale-110 transition-all duration-200"
+                      aria-label="Previous slide"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </button>
+                    <button 
+                      onClick={nextPoster} 
+                      className="absolute right-4 lg:right-8 z-20 btn-ghost bg-white/90 hover:bg-white p-3 rounded-full shadow-large hover:scale-110 transition-all duration-200"
+                      aria-label="Next slide"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </button>
+                  </>
+                )}
+
+                {/* Carousel Container */}
+                <div className="w-full max-w-5xl relative overflow-hidden rounded-3xl shadow-large">
+                  {carouselItems.length > 0 ? (
+                    <div className="flex transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentPosterIndex * 100}%)` }}>
+                      {carouselItems.map((item) => (
+                        <div key={item.id} className="w-full flex-shrink-0 relative group">
+                          <Link to={`/contest/${item.id}`} className="block">
+                            <img 
+                              src={item.poster_url} 
+                              alt={item.name} 
+                              className="w-full h-auto object-contain bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-3xl" 
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="absolute bottom-0 left-0 right-0 p-6 lg:p-8">
+                                <div className="flex items-center gap-4 mb-3">
+                                  <div className="badge-primary">
+                                    <Calendar className="h-4 w-4 mr-1" />
+                                    กิจกรรม
+                                  </div>
+                                  <div className="badge-secondary">
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    กำลังดำเนินการ
+                                  </div>
+                                </div>
+                                <h3 className="text-white text-2xl lg:text-3xl font-bold mb-2">{item.name}</h3>
+                                {item.short_description && (
+                                  <p className="text-white/90 text-lg leading-relaxed line-clamp-2">
+                                    {item.short_description}
+                                  </p>
+                                )}
+                                <div className="flex items-center gap-2 mt-4 text-white/80">
+                                  <ArrowRight className="h-4 w-4" />
+                                  <span className="text-sm font-medium">คลิกเพื่อดูรายละเอียด</span>
+                                </div>
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center bg-neutral-100 w-full h-full rounded-3xl">
+                      <div className="text-center">
+                        <Award className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+                        <p className="text-neutral-600 text-lg">ไม่พบกิจกรรมที่กำลังดำเนินอยู่</p>
+                        <p className="text-neutral-500 text-sm mt-2">กรุณาตรวจสอบอีกครั้งในภายหลัง</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Dots Indicator */}
+              {carouselItems.length > 1 && (
+                <div className="flex justify-center mt-8">
+                  {carouselItems.map((_, index) => (
+                    <button 
+                      key={index} 
+                      onClick={() => { setCurrentPosterIndex(index); handleUserInteraction(); }} 
+                      className={`w-3 h-3 mx-1.5 rounded-full transition-all duration-300 ${
+                        index === currentPosterIndex 
+                          ? "bg-primary-600 w-8 shadow-medium" 
+                          : "bg-neutral-300 hover:bg-neutral-400"
+                      }`} 
+                      aria-label={`Go to slide ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
+          </div>
         </section>
 
         {/* Section 2: Grid ข่าวสารแนะนำ */}
-        <section className="mt-16">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-8 text-purple-700">
-            ข่าวสารแนะนำ
-          </h2>
-          {loadingNews && <p className="text-center">กำลังโหลดข่าวสาร...</p>}
-          {errorNews && <p className="text-center text-red-500">{errorNews}</p>}
+        <section className="page-section">
+          <div className="container-responsive">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-6">
+                📰 ข่าวสารแนะนำ
+              </h2>
+              <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                อัพเดทข่าวสารและความรู้เกี่ยวกับปลากัดล่าสุด
+              </p>
+            </div>
+
+          {loadingNews && (
+            <div className="flex justify-center items-center py-20">
+              <div className="loading-spinner w-12 h-12"></div>
+              <span className="ml-4 text-lg text-neutral-600">กำลังโหลดข่าวสาร...</span>
+            </div>
+          )}
+
+          {errorNews && (
+            <div className="text-center py-20">
+              <div className="card max-w-md mx-auto">
+                <p className="text-error-600 text-lg">{errorNews}</p>
+              </div>
+            </div>
+          )}
+
           {!loadingNews && !errorNews && (
             newsItems.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid-responsive grid-cols-responsive">
                 {newsItems.map((news) => (
-                  <article key={news.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl group">
-                    <Link to={`/news/${news.id}`}>
-                      <div className="overflow-hidden h-48"><img src={news.poster_url} alt={news.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" /></div>
-                      <div className="p-4">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">{news.name}</h3>
-                        <p className="line-clamp-3 text-gray-600 text-sm mb-2">{news.short_description}</p>
-                        <time className="text-gray-400 text-xs block">{new Date(news.created_at).toLocaleDateString('th-TH')}</time>
+                  <article key={news.id} className="card-hover group overflow-hidden">
+                    <Link to={`/news/${news.id}`} className="block">
+                      <div className="overflow-hidden aspect-[4/3] rounded-xl mb-4">
+                        <img 
+                          src={news.poster_url} 
+                          alt={news.name} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="badge-primary">
+                            <Star className="h-3 w-3 mr-1" />
+                            ข่าวสาร
+                          </div>
+                          <time className="text-xs text-neutral-500">
+                            {new Date(news.created_at).toLocaleDateString('th-TH', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </time>
+                        </div>
+                        <h3 className="text-xl font-bold text-neutral-900 group-hover:text-primary-600 transition-colors duration-200 line-clamp-2">
+                          {news.name}
+                        </h3>
+                        {news.short_description && (
+                          <p className="text-neutral-600 leading-relaxed line-clamp-3">
+                            {news.short_description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 text-primary-600 font-medium text-sm group-hover:gap-3 transition-all duration-200">
+                          <span>อ่านเพิ่มเติม</span>
+                          <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+                        </div>
                       </div>
                     </Link>
                   </article>
                 ))}
               </div>
             ) : (
-              <p className="text-center text-gray-600">ไม่พบข่าวสารแนะนำ</p>
+              <div className="text-center py-20">
+                <div className="card max-w-md mx-auto">
+                  <FileText className="h-16 w-16 text-neutral-400 mx-auto mb-4" />
+                  <p className="text-neutral-600 text-lg">ไม่พบข่าวสารแนะนำ</p>
+                  <p className="text-neutral-500 text-sm mt-2">กรุณาตรวจสอบอีกครั้งในภายหลัง</p>
+                </div>
+              </div>
             )
           )}
+          </div>
         </section>
       </div>
     </main>

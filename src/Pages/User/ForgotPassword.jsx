@@ -22,21 +22,24 @@ const ForgotPassword = () => {
   const success = message.includes("ลิงก์");
 
   return (
-    <>
-      {/* พื้นหลังเต็มหน้าจอ (full-bleed) */}
-      <div
-        className="fixed inset-0 -z-10 bg-gradient-to-br from-purple-200 via-pink-200 to-red-200"
-        aria-hidden="true"
-      />
+    <main className="page-container">
+      <section className="page-hero">
+        <div className="page-hero-content">
+          <div className="text-center max-w-5xl mx-auto">
+            <h1 className="text-5xl md:text-7xl font-bold mb-8">
+              🔑 รีเซ็ตรหัสผ่าน
+            </h1>
+            <p className="text-2xl md:text-3xl text-white/95 font-medium leading-relaxed">
+              กู้คืนการเข้าถึงบัญชีของคุณ
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <main className="relative min-h-screen w-screen overflow-x-hidden">
-        {/* ปรับ pt-* ให้พอดีกับความสูง navbar ของคุณ */}
-        <section className="w-full pt-24 sm:pt-28 lg:pt-32 pb-10 px-3 sm:px-6 lg:px-10">
-          {/* กล่องคอนเทนต์แบบเต็มกว้าง (ไม่จัดกลาง) */}
-          <div className="w-full bg-white/90 backdrop-blur rounded-2xl shadow-lg p-4 sm:p-6 md:p-8 lg:p-10">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-700 mb-4 sm:mb-6">
-              รีเซ็ตรหัสผ่านของคุณ
-            </h2>
+      <div className="page-main">
+        <section className="page-section">
+          <div className="container-responsive">
+            <div className="content-card max-w-2xl mx-auto">
 
             {message && (
               <div
@@ -88,10 +91,11 @@ const ForgotPassword = () => {
                 กลับไปที่หน้าล็อกอิน
               </a>
             </p>
+            </div>
           </div>
         </section>
-      </main>
-    </>
+      </div>
+    </main>
   );
 };
 

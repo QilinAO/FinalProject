@@ -47,10 +47,10 @@ export const BETTA_TYPE_MAP_ID = {
   "h": "ปลากัดป่ารุ่นจิ๋ว(รวมทุกประเภท ความยาวไม่เกิน 1.2 นิ้ว)",
 };
 
-// Array ใหม่สำหรับฟอร์มที่ใช้ "รหัสย่อ"
-export const BETTA_TYPES_ID = Object.entries(BETTA_TYPE_MAP_ID).map(
-  ([value, label]) => ({ value, label })
-);
+// Array ใหม่สำหรับฟอร์มที่ใช้ "รหัสย่อ" - เอาเฉพาะ uppercase เพื่อหลีกเลี่ยงการซ้ำ
+export const BETTA_TYPES_ID = Object.entries(BETTA_TYPE_MAP_ID)
+  .filter(([value]) => value === value.toUpperCase()) // เอาเฉพาะตัวพิมพ์ใหญ่
+  .map(([value, label]) => ({ value, label }));
 
 
 // ===================================================================

@@ -44,8 +44,9 @@ const QualityEvaluationHistory = () => {
   const StatusBadge = ({ status }) => {
     const statusStyles = {
       'รอการตรวจสอบ': 'bg-gray-200 text-gray-800',
-      'รอผู้เชี่ยวชาญประเมิน': 'bg-yellow-200 text-yellow-800',
-      'กำลังดำเนินการ': 'bg-blue-200 text-blue-800',
+      'รอการมอบหมาย': 'bg-gray-200 text-gray-800',
+      'รอผู้เชี่ยวชาญตอบรับ': 'bg-yellow-200 text-yellow-800',
+      'กำลังประเมิน': 'bg-blue-200 text-blue-800',
       'ประเมินเสร็จสิ้น': 'bg-green-200 text-green-800',
       'ถูกปฏิเสธ': 'bg-red-200 text-red-800',
     };
@@ -91,13 +92,14 @@ const QualityEvaluationHistory = () => {
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อปลากัด</th>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ส่ง</th>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คะแนน</th>
               <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
             {evaluations.length === 0 ? (
               <tr>
-                <td colSpan="4" className="text-center py-10 text-gray-500">
+                <td colSpan="5" className="text-center py-10 text-gray-500">
                   <Frown className="mx-auto mb-2" size={48} />
                   ยังไม่มีประวัติการประเมินคุณภาพ
                 </td>
@@ -108,6 +110,13 @@ const QualityEvaluationHistory = () => {
                   <td className="py-4 px-6 text-sm font-medium text-gray-900">{evalItem.betta_name}</td>
                   <td className="py-4 px-6 text-sm text-gray-500">{new Date(evalItem.evaluationDate).toLocaleDateString("th-TH")}</td>
                   <td className="py-4 px-6"><StatusBadge status={evalItem.status} /></td>
+                  <td className="py-4 px-6 text-sm text-gray-900">
+                    {evalItem.assignees?.[0]?.total_score ? (
+                      <span className="font-bold text-green-600">{evalItem.assignees[0].total_score} คะแนน</span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
                   <td className="py-4 px-6">
                     <button
                       onClick={() => openModal(evalItem)}

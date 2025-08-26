@@ -6,7 +6,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { GiHamburgerMenu } from "react-icons/gi";
 import { IoMdClose } from "react-icons/io";
 import { toast } from "react-toastify";
-import { Bell, CheckCircle } from "lucide-react";
+import { Bell, CheckCircle, User, LogOut, Settings, Home, FileText, Award, Clock, Menu } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
 import {
@@ -202,95 +202,128 @@ const Navbar = () => {
     }
   };
 
-  const NavLink = ({ to, children, className = "" }) => (
-    <Link
-      to={to}
-      className={`relative block text-gray-200 px-3 py-2 rounded-md hover:text-white hover:bg-purple-700/30 transition-all duration-200 ease-in-out text-sm md:text-base font-medium ${className}`}
-      onClick={() => setIsMenuOpen(false)}
-    >
-      {children}
-    </Link>
-  );
+  const NavLink = ({ to, children, icon: Icon, className = "", isMobile = false }) => {
+    const isActive = location.pathname === to;
+    
+    if (isMobile) {
+      return (
+        <Link
+          to={to}
+          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-gray-700 hover:bg-gray-100 ${
+            isActive ? 'bg-primary-50 text-primary-700 border-l-4 border-primary-500' : ''
+          } ${className}`}
+          onClick={() => setIsMenuOpen(false)}
+        >
+          {Icon && <Icon className="h-5 w-5" />}
+          {children}
+        </Link>
+      );
+    }
+    
+    return (
+      <Link
+        to={to}
+        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-medium text-white hover:bg-white/10 ${
+          isActive ? 'bg-white/20 text-white' : ''
+        } ${className}`}
+        onClick={() => setIsMenuOpen(false)}
+      >
+        {Icon && <Icon className="h-5 w-5" />}
+        {children}
+      </Link>
+    );
+  };
 
   // ---------- RENDER ----------
   return (
-    <nav className="bg-purple-800 shadow-xl sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
+    <nav className="bg-gradient-to-r from-primary-700 to-primary-800 shadow-large sticky top-0 z-50 border-b border-primary-600">
+      <div className="container-responsive">
+        <div className="flex justify-between items-center h-16 lg:h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2 group" onClick={closeAllDropdowns}>
-            <span className="text-white text-lg sm:text-xl md:text-2xl font-bold tracking-wider">
-              BettaFish
-            </span>
+          <Link to="/" className="flex items-center space-x-3 group" onClick={closeAllDropdowns}>
+            <div className="w-10 h-10 lg:w-12 lg:h-12 bg-white rounded-2xl flex items-center justify-center shadow-medium group-hover:shadow-large transition-all duration-300">
+              <span className="text-primary-600 text-lg lg:text-xl font-bold">🐟</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-white text-lg lg:text-xl font-bold tracking-wide">
+                BettaFish
+              </span>
+              <span className="text-primary-200 text-xs lg:text-sm font-medium">
+                ระบบจัดการปลากัด
+              </span>
+            </div>
           </Link>
 
           {/* Mobile Menu Button */}
           <button
             type="button"
             onClick={toggleMenu}
-            className="md:hidden text-white hover:text-purple-200 transition-colors duration-200 p-2 rounded-lg hover:bg-purple-700/30"
+            className="lg:hidden p-3 rounded-xl bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30 transition-all duration-300"
             aria-label="Toggle menu"
           >
-            <GiHamburgerMenu className="h-6 w-6" />
+            <Menu className="h-6 w-6" />
           </button>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-1">
-            <NavLink to="/">แนะนำ</NavLink>
-            <NavLink to="/news">ข่าวสาร</NavLink>
-            <NavLink to="/evaluate">ส่งปลากัด</NavLink>
-            <NavLink to="/contest">การประกวด</NavLink>
-            {isAuthenticated && <NavLink to="/history">ประวัติ</NavLink>}
+          <div className="hidden lg:flex items-center space-x-2">
+            <NavLink to="/" icon={Home}>หน้าแรก</NavLink>
+            <NavLink to="/news" icon={FileText}>ข่าวสาร</NavLink>
+            <NavLink to="/evaluate" icon={Award}>ส่งปลากัด</NavLink>
+            <NavLink to="/contest" icon={Award}>การประกวด</NavLink>
+            {isAuthenticated && <NavLink to="/history" icon={Clock}>ประวัติ</NavLink>}
 
             {isAuthenticated ? (
-              <div className="flex items-center gap-2 ml-4">
+              <div className="flex items-center gap-3 ml-4">
                 {/* Notification Bell */}
                 <div className="relative" ref={notifMenuRef}>
                   <button
                     type="button"
                     onClick={() => setIsNotifOpen((v) => !v)}
-                    className="p-2 text-white rounded-full hover:bg-purple-700/50 transition-colors relative"
+                    className="btn-ghost text-white hover:bg-white/10 p-3 rounded-xl relative"
                     aria-label="Open notifications"
                   >
-                    <Bell />
+                    <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 rounded-full bg-red-500 text-white text-xs flex items-center justify-center border-2 border-purple-800">
+                      <span className="absolute -top-1 -right-1 h-6 min-w-[24px] px-1.5 rounded-full bg-error-500 text-white text-xs flex items-center justify-center border-2 border-primary-700 font-bold animate-bounce-soft">
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
                   </button>
 
                   {isNotifOpen && (
-                    <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl z-20 max-h-96 overflow-y-auto">
-                      <div className="p-3 flex items-center justify-between border-b">
-                        <div className="font-bold text-gray-800">การแจ้งเตือน</div>
+                    <div className="absolute right-0 mt-3 w-80 sm:w-96 card shadow-large z-20 max-h-96 overflow-y-auto animate-slide-up">
+                      <div className="p-4 flex items-center justify-between border-b border-neutral-200">
+                        <div className="font-bold text-neutral-800 text-lg">การแจ้งเตือน</div>
                         <button
                           type="button"
                           disabled={loadingNotif || notifications.length === 0}
                           onClick={handleMarkAllRead}
-                          className="text-xs px-2 py-1 rounded bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50"
+                          className="btn-sm btn-outline text-xs"
                         >
                           ทำทั้งหมดเป็นอ่านแล้ว
                         </button>
                       </div>
 
                       {loadingNotif && (
-                        <div className="p-4 text-center text-gray-500">กำลังโหลด...</div>
+                        <div className="p-6 text-center text-neutral-500">
+                          <div className="loading-spinner w-6 h-6 mx-auto mb-2"></div>
+                          กำลังโหลด...
+                        </div>
                       )}
 
                       {!loadingNotif && notifications.length > 0 ? (
-                        <div>
+                        <div className="divide-y divide-neutral-100">
                           {notifications.map((notif) => (
                             <div
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`p-3 border-b last:border-b-0 hover:bg-gray-100 cursor-pointer ${
-                                !notif.is_read ? "bg-purple-50" : ""
+                              className={`p-4 hover:bg-neutral-50 cursor-pointer transition-colors duration-200 ${
+                                !notif.is_read ? "bg-primary-50 border-l-4 border-primary-500" : ""
                               }`}
                             >
-                              <p className="text-sm text-gray-700">{notif.message}</p>
+                              <p className="text-sm text-neutral-700 leading-relaxed">{notif.message}</p>
                               {notif.created_at && (
-                                <p className="text-xs text-gray-400 mt-1 text-right">
+                                <p className="text-xs text-neutral-400 mt-2 text-right">
                                   {formatThaiDateTime(notif.created_at)}
                                 </p>
                               )}
@@ -299,9 +332,9 @@ const Navbar = () => {
                         </div>
                       ) : (
                         !loadingNotif && (
-                          <div className="p-4 text-center text-gray-500">
-                            <CheckCircle className="mx-auto mb-2 text-gray-300" />
-                            ไม่มีการแจ้งเตือนใหม่
+                          <div className="p-8 text-center text-neutral-500">
+                            <CheckCircle className="mx-auto mb-3 text-neutral-300 h-12 w-12" />
+                            <p className="text-sm">ไม่มีการแจ้งเตือนใหม่</p>
                           </div>
                         )
                       )}
@@ -314,24 +347,35 @@ const Navbar = () => {
                   <button
                     type="button"
                     onClick={() => setIsProfileMenuOpen((v) => !v)}
-                    className="px-4 py-2 bg-purple-700 text-white rounded-lg text-sm md:text-base font-medium shadow-lg hover:bg-purple-600 transition-all duration-200"
+                    className="btn-primary flex items-center gap-2 px-4 py-2"
                   >
-                    {user?.username || `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "โปรไฟล์"}
+                    <User className="h-4 w-4" />
+                    <span className="hidden xl:block">
+                      {user && (user.username || `${user.first_name || ""} ${user.last_name || ""}`.trim()) || "โปรไฟล์"}
+                    </span>
                   </button>
                   {isProfileMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl py-1 z-10">
+                    <div className="absolute right-0 mt-3 w-56 card shadow-large py-2 z-10 animate-slide-up">
+                      <div className="px-4 py-3 border-b border-neutral-200">
+                        <p className="text-sm font-medium text-neutral-900">
+                          {user?.first_name} {user?.last_name}
+                        </p>
+                        <p className="text-xs text-neutral-500">{user?.email}</p>
+                      </div>
                       <button
                         type="button"
                         onClick={handleDashboardRedirect}
-                        className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-purple-50 hover:text-purple-800"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-neutral-700 hover:bg-neutral-50 transition-colors duration-200"
                       >
+                        <Settings className="h-4 w-4" />
                         แดชบอร์ด/โปรไฟล์
                       </button>
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-purple-50 hover:text-purple-800"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-neutral-700 hover:bg-neutral-50 transition-colors duration-200"
                       >
+                        <LogOut className="h-4 w-4" />
                         ออกจากระบบ
                       </button>
                     </div>
@@ -341,7 +385,7 @@ const Navbar = () => {
             ) : (
               <Link
                 to="/login"
-                className="ml-4 px-4 py-2 bg-green-500 text-white rounded-lg text-sm md:text-base font-medium hover:bg-green-600 transition-all duration-200"
+                className="btn-primary ml-4"
               >
                 เข้าสู่ระบบ
               </Link>
@@ -353,41 +397,76 @@ const Navbar = () => {
             ref={navMenuRef}
             className={`fixed inset-y-0 right-0 transform ${
               isMenuOpen ? "translate-x-0" : "translate-x-full"
-            } w-72 bg-purple-800 shadow-2xl transition-transform duration-300 ease-in-out md:hidden backdrop-blur-lg bg-opacity-95`}
+            } w-80 bg-white shadow-2xl transition-transform duration-300 ease-in-out lg:hidden z-50`}
           >
-            <div className="flex justify-end p-4">
-              <button
-                type="button"
-                onClick={() => setIsMenuOpen(false)}
-                className="text-white hover:text-purple-200 p-2 rounded-lg hover:bg-purple-700/30"
-                aria-label="Close menu"
-              >
-                <IoMdClose className="h-6 w-6" />
-              </button>
-            </div>
-            <div className="px-4 py-4 text-center space-y-2">
-              <NavLink to="/">แนะนำ</NavLink>
-              <NavLink to="/news">ข่าวสาร</NavLink>
-              <NavLink to="/evaluate">ส่งปลากัด</NavLink>
-              <NavLink to="/contest">การประกวด</NavLink>
-              <hr className="border-purple-600 my-2" />
-              {isAuthenticated ? (
-                <>
-                  <NavLink to="/history">ประวัติ</NavLink>
-                  <NavLink to="/profile">ข้อมูลส่วนตัว</NavLink>
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="flex justify-between items-center p-6 border-b border-neutral-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-primary-600 rounded-2xl flex items-center justify-center">
+                    <span className="text-white text-lg font-bold">🐟</span>
+                  </div>
+                  <div>
+                    <p className="text-neutral-900 font-bold">BettaFish</p>
+                    <p className="text-neutral-500 text-sm">ระบบจัดการปลากัด</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="btn-ghost p-2 rounded-xl"
+                  aria-label="Close menu"
+                >
+                  <IoMdClose className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Menu Items */}
+              <div className="flex-1 p-6 space-y-2">
+                <NavLink to="/" icon={Home} isMobile={true}>หน้าแรก</NavLink>
+                <NavLink to="/news" icon={FileText} isMobile={true}>ข่าวสาร</NavLink>
+                <NavLink to="/evaluate" icon={Award} isMobile={true}>ส่งปลากัด</NavLink>
+                <NavLink to="/contest" icon={Award} isMobile={true}>การประกวด</NavLink>
+                
+                {isAuthenticated && (
+                  <>
+                    <hr className="border-neutral-200 my-4" />
+                    <NavLink to="/history" icon={Clock} isMobile={true}>ประวัติ</NavLink>
+                    <NavLink to="/profile" icon={User} isMobile={true}>ข้อมูลส่วนตัว</NavLink>
+                  </>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-6 border-t border-neutral-200">
+                {isAuthenticated ? (
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full text-left relative block text-gray-100 px-3 py-2 rounded-md hover:text-white hover:bg-purple-700/30 transition-all duration-200 ease-in-out text-sm md:text-base font-medium"
+                    className="w-full btn-outline flex items-center justify-center gap-2"
                   >
+                    <LogOut className="h-4 w-4" />
                     ออกจากระบบ
                   </button>
-                </>
-              ) : (
-                <NavLink to="/login">เข้าสู่ระบบ</NavLink>
-              )}
+                ) : (
+                  <Link
+                    to="/login"
+                    className="w-full btn-primary flex items-center justify-center gap-2"
+                  >
+                    เข้าสู่ระบบ
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Mobile Menu Overlay */}
+          {isMenuOpen && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+              onClick={() => setIsMenuOpen(false)}
+            />
+          )}
         </div>
       </div>
     </nav>

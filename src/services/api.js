@@ -1,7 +1,7 @@
 // D:\ProJectFinal\Lasts\my-project\src\services\api.js
 import { getAccessToken, signoutUser } from './authService';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
 const DEV_USER_ID = import.meta.env.VITE_DEV_USER_ID || '';
 
 export class ApiHttpError extends Error {
@@ -61,6 +61,7 @@ class ApiService {
   _headers(extra = {}, body) {
     const headers = { Accept: 'application/json', ...extra };
     const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+    // ไม่ตั้ง Content-Type สำหรับ FormData เพราะ browser จะตั้งเองพร้อม boundary
     if (!isForm && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
 
     const token = getAccessToken?.();

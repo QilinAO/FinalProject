@@ -12,13 +12,13 @@ import { getBettaTypeLabel } from '../../utils/bettaTypes';
 const StatCard = ({ icon, label, value, onClick, isActive }) => (
   <button
     onClick={onClick}
-    className={`w-full bg-white p-4 rounded-lg shadow text-left transition-all duration-200 ${isActive ? 'ring-2 ring-purple-500 shadow-lg' : 'hover:shadow-md'}`}
+    className={`w-full betta-card text-left transition-all duration-200 ${isActive ? 'ring-2 ring-primary-500 shadow-large' : 'hover:shadow-medium'}`}
   >
     <div className="flex items-center">
-      <div className="p-3 rounded-full bg-gray-100 text-gray-600">{icon}</div>
+      <div className="p-3 rounded-full bg-neutral-100 text-muted">{icon}</div>
       <div className="ml-4">
-        <p className="text-sm font-medium text-gray-500">{label}</p>
-        <h3 className="text-2xl font-bold">{value}</h3>
+        <p className="text-sm font-medium text-caption">{label}</p>
+        <h3 className="text-2xl font-bold text-heading">{value}</h3>
       </div>
     </div>
   </button>
@@ -35,6 +35,7 @@ const LiveContestRoom = () => {
   const [finalizeModalOpen, setFinalizeModalOpen] = useState(false);
   const [submissionInModal, setSubmissionInModal] = useState(null);
   const [filterStatus, setFilterStatus] = useState('pending');
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     Modal.setAppElement('#root');
@@ -98,11 +99,22 @@ const LiveContestRoom = () => {
     if (selectedSubmissions.length === 0) return toast.info("กรุณาเลือกผู้สมัครก่อน");
     setIsProcessing(true);
     try {
-      const promises = selectedSubmissions.map(id => updateSubmissionStatus(id, newStatus));
+      let reason;
+      if (newStatus === 'rejected') {
+        reason = window.prompt('ระบุเหตุผลที่ปฏิเสธ/ยกเลิกการอนุมัติ:');
+        if (!reason || !reason.trim()) {
+          setIsProcessing(false);
+          return toast.info('ยกเลิก เนื่องจากไม่ได้ระบุเหตุผล');
+        }
+      }
+      const promises = selectedSubmissions.map(id => updateSubmissionStatus(id, newStatus, reason));
       await Promise.all(promises);
       toast.success(`อัปเดตสถานะ ${selectedSubmissions.length} รายการสำเร็จ!`);
       setSelectedSubmissions([]);
       await fetchSubmissions(selectedContest.id);
+      // สลับแท็บอัตโนมัติหลังอัปเดต
+      if (newStatus === 'approved') setFilterStatus('approved');
+      else if (newStatus === 'rejected') setFilterStatus('rejected');
     } catch (error) {
       toast.error("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
     } finally {
@@ -117,6 +129,15 @@ const LiveContestRoom = () => {
       const response = await updateMyContest(selectedContest.id, { status: newStatus });
       setSelectedContest(response);
       toast.success(`เปลี่ยนสถานะเป็น "${newStatus}" สำเร็จ!`);
+      // เมื่อปิดรับสมัคร เสนอให้เปิดการตัดสินทันที เพื่อให้ผู้เชี่ยวชาญให้คะแนนได้
+      if (newStatus === 'ปิดรับสมัคร') {
+        const proceed = window.confirm('ต้องการเปิดการตัดสินตอนนี้เพื่อให้ผู้เชี่ยวชาญเริ่มให้คะแนนหรือไม่?');
+        if (proceed) {
+          const judging = await updateMyContest(selectedContest.id, { status: 'ตัดสิน' });
+          setSelectedContest(judging);
+          toast.success('เปิดการตัดสินแล้ว ผู้เชี่ยวชาญสามารถให้คะแนนได้');
+        }
+      }
     } catch (error) {
       toast.error("เกิดข้อผิดพลาด: " + error.message);
     } finally {
@@ -140,12 +161,12 @@ const LiveContestRoom = () => {
   };
 
   const ContestCard = ({ contest }) => (
-    <div onClick={() => handleSelectContest(contest)} className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer">
-      <h3 className="font-bold text-xl text-gray-800 truncate">{contest.name}</h3>
-      <p className={`mt-2 text-sm font-semibold px-2 py-1 inline-block rounded-full ${
-          {'กำลังดำเนินการ': 'bg-blue-100 text-blue-800', 'ปิดรับสมัคร': 'bg-yellow-100 text-yellow-800', 'ตัดสิน': 'bg-purple-100 text-purple-800'}[contest.status]
-      }`}>{contest.status}</p>
-      <div className="mt-4 text-gray-500 text-sm flex justify-between">
+    <div onClick={() => handleSelectContest(contest)} className="betta-card-interactive">
+      <h3 className="font-bold text-xl text-heading truncate">{contest.name}</h3>
+            <p className={`mt-2 text-sm font-semibold px-2 py-1 inline-block rounded-full ${
+          {'กำลังดำเนินการ': 'contest-active', 'ปิดรับสมัคร': 'contest-closed', 'ตัดสิน': 'contest-judging'}[contest.status]
+        }`}>{contest.status}</p>
+      <div className="mt-4 text-muted text-sm flex justify-between">
         <span><Users size={14} className="inline mr-1"/> {contest.submissions?.length || 0} ผู้สมัคร</span>
         <span><Users size={14} className="inline mr-1"/> {contest.contest_judges?.length || 0} กรรมการ</span>
       </div>
@@ -166,28 +187,28 @@ const LiveContestRoom = () => {
     }, [submissions, filterStatus]);
 
     const getStatusBadge = (status) => {
-      const styles = { approved: 'bg-green-100 text-green-800', rejected: 'bg-red-100 text-red-800', pending: 'bg-yellow-100 text-yellow-800' };
-      return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status] || 'bg-gray-100'}`}>{status}</span>;
+      const styles = { approved: 'status-approved', rejected: 'status-rejected', pending: 'status-pending' };
+      return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status] || 'status-closed'}`}>{status}</span>;
     };
 
     return (
       <div>
-        <button onClick={handleBackToList} className="flex items-center gap-2 text-gray-600 hover:text-black mb-4">
+        <button onClick={handleBackToList} className="flex items-center gap-2 text-muted hover:text-heading mb-4 transition-colors">
           <ArrowLeft size={18}/> กลับไปหน้ารายการ
         </button>
-        <h2 className="text-3xl font-bold text-gray-800">{selectedContest.name}</h2>
+        <h2 className="text-3xl font-bold text-heading">{selectedContest.name}</h2>
         
-        <div className="my-6 p-4 bg-gray-50 rounded-lg flex justify-between items-center">
+        <div className="my-6 p-4 surface-secondary rounded-lg flex justify-between items-center">
           <div>
-            <p className="text-gray-600">สถานะปัจจุบัน:</p>
-            <p className="font-bold text-xl text-purple-700">{selectedContest.status}</p>
+            <p className="text-body">สถานะปัจจุบัน:</p>
+            <p className="font-bold text-xl text-secondary-700">{selectedContest.status}</p>
           </div>
           <div className="flex items-center space-x-2">
             {isProcessing ? <LoaderCircle className="animate-spin"/> : (
               <>
-                {selectedContest.status === 'กำลังดำเนินการ' && <button onClick={() => handleContestStatusChange('ปิดรับสมัคร')} className="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center"><Lock className="mr-2" size={18}/> ปิดรับสมัคร</button>}
-                {selectedContest.status === 'ปิดรับสมัคร' && <button onClick={() => handleContestStatusChange('ตัดสิน')} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center"><PlayCircle className="mr-2" size={18}/> เริ่มการตัดสิน</button>}
-                {selectedContest.status === 'ตัดสิน' && <button onClick={() => setFinalizeModalOpen(true)} className="bg-yellow-500 text-white px-4 py-2 rounded-lg flex items-center"><Trophy className="mr-2" size={18}/> คำนวณและประกาศผล</button>}
+                {selectedContest.status === 'กำลังดำเนินการ' && <button onClick={() => handleContestStatusChange('ปิดรับสมัคร')} className="action-reject flex items-center"><Lock className="mr-2" size={18}/> ปิดรับสมัคร</button>}
+                {selectedContest.status === 'ปิดรับสมัคร' && <button onClick={() => handleContestStatusChange('ตัดสิน')} className="btn-primary flex items-center"><PlayCircle className="mr-2" size={18}/> เริ่มการตัดสิน</button>}
+                {selectedContest.status === 'ตัดสิน' && <button onClick={() => setFinalizeModalOpen(true)} className="action-pending flex items-center"><Trophy className="mr-2" size={18}/> คำนวณและประกาศผล</button>}
               </>
             )}
           </div>
@@ -227,7 +248,33 @@ const LiveContestRoom = () => {
                     <td className="p-2 text-gray-600">{sub.owner.first_name}</td>
                     <td className="p-2">{getStatusBadge(sub.status)}</td>
                     <td className="p-2 text-center">
-                      <button onClick={() => { setSubmissionInModal(sub); setDetailModalOpen(true); }} className="p-1 text-blue-600"><Eye size={16}/></button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button onClick={() => { setSubmissionInModal(sub); setDetailModalOpen(true); }} className="p-1 text-blue-600" title="ดูรายละเอียด"><Eye size={16}/></button>
+                        {sub.status !== 'approved' && (
+                          <button disabled={actionLoading} onClick={async () => {
+                            setActionLoading(true);
+                            try {
+                              await updateSubmissionStatus(sub.id, 'approved');
+                              toast.success('อนุมัติสำเร็จ');
+                              await fetchSubmissions(selectedContest.id);
+                              setFilterStatus('approved');
+                            } catch(e){ toast.error(e.message || 'อนุมัติไม่สำเร็จ'); } finally { setActionLoading(false); }
+                          }} className="px-2 py-1 text-xs rounded bg-green-600 text-white">อนุมัติ</button>
+                        )}
+                        {sub.status !== 'rejected' && (
+                          <button disabled={actionLoading} onClick={async () => {
+                            const reason = window.prompt('ระบุเหตุผลที่ปฏิเสธ/ยกเลิกการอนุมัติ:');
+                            if (!reason || !reason.trim()) return;
+                            setActionLoading(true);
+                            try {
+                              await updateSubmissionStatus(sub.id, 'rejected', reason.trim());
+                              toast.warn('ปฏิเสธแล้ว');
+                              await fetchSubmissions(selectedContest.id);
+                              setFilterStatus('rejected');
+                            } catch(e){ toast.error(e.message || 'ปฏิเสธไม่สำเร็จ'); } finally { setActionLoading(false); }
+                          }} className="px-2 py-1 text-xs rounded bg-red-600 text-white">{sub.status === 'approved' ? 'ยกเลิกการอนุมัติ' : 'ปฏิเสธ'}</button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

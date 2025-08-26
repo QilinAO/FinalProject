@@ -41,20 +41,17 @@ const UserLayout = () => {
   return (
     <>
       <Navbar />
-      <main className="pt-16">
-        {/* เพิ่ม Container และ Padding ให้กับเนื้อหา */}
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/*
-            ErrorBoundary ทำหน้าที่ดักจับ Error ที่เกิดจากการ Render ใน <Outlet />
-            - resetKeys: บอกให้ ErrorBoundary พยายาม Render ใหม่เมื่อ URL เปลี่ยน
-          */}
-          <ErrorBoundary
-            FallbackComponent={ErrorFallback}
-            resetKeys={[location.pathname]}
-          >
-            <Outlet />
-          </ErrorBoundary>
-        </div>
+      <main>
+        {/*
+          ErrorBoundary ทำหน้าที่ดักจับ Error ที่เกิดจากการ Render ใน <Outlet />
+          - resetKeys: บอกให้ ErrorBoundary พยายาม Render ใหม่เมื่อ URL เปลี่ยน
+        */}
+        <ErrorBoundary
+          FallbackComponent={ErrorFallback}
+          resetKeys={[location.pathname]}
+        >
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </>
   );

@@ -135,15 +135,12 @@ const SingleNewsPage = () => {
         </div>
       </main>
 
-      {/* [อัปเดต] เพิ่มการเรียกใช้ SubmissionFormModal ที่นี่ */}
-      {/* Component นี้จะถูก Render ก็ต่อเมื่อ isModalOpen เป็น true และมีข้อมูล content */}
-      {content && (
-        <SubmissionFormModal
-          isOpen={isModalOpen}
-          onRequestClose={() => setIsModalOpen(false)}
-          contest={content}
-        />
-      )}
+      {/* Modal คงอยู่เสมอเพื่อหลีกเลี่ยงการเปิดซ้อน */}
+      <SubmissionFormModal
+        isOpen={isModalOpen}
+        onRequestClose={() => setIsModalOpen(false)}
+        contest={content}
+      />
     </>
   );
 };

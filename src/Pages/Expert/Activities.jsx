@@ -99,9 +99,23 @@ const Activities = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
-      {/* แทนการใช้ lg:ml-64 ด้วย pt-20 เพื่อกันไม่ให้เมนู Navbar ด้านบนทับเนื้อหา */}
-      <div className="pt-20 p-4">
+    <main className="page-container">
+      <section className="page-hero">
+        <div className="page-hero-content">
+          <div className="text-center max-w-5xl mx-auto">
+            <h1 className="text-5xl md:text-7xl font-bold mb-8">
+              🎯 กิจกรรมของผู้เชี่ยวชาญ
+            </h1>
+            <p className="text-2xl md:text-3xl text-white/95 font-medium leading-relaxed">
+              จัดการงานประเมินและการแข่งขัน
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="page-main">
+        <section className="page-section">
+          <div className="container-responsive">
         <div className="container mx-auto">
           <h1 className="text-3xl font-extrabold text-blue-900 mb-6 drop-shadow-sm">
             กิจกรรมที่ได้รับเชิญเป็นกรรมการ
@@ -303,9 +317,10 @@ const Activities = () => {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
 

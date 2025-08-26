@@ -10,6 +10,7 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "react-toastify";
 import { X, ImagePlus, Video, LoaderCircle } from 'lucide-react';
 import { submitBettaForCompetition } from "../services/userService";
+import modelService from "../services/modelService";
 import { BETTA_TYPE_MAP_ID } from '../utils/bettaTypes';
 
 /**
@@ -79,10 +80,12 @@ const VideoDropzone = ({ getRootProps, getInputProps, video, onRemove }) => (
  * Component หลักของ Submission Form Modal
  */
 const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
-  const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm();
+  const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm();
   const [images, setImages] = useState([]);
   const [video, setVideo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [aiChecking, setAiChecking] = useState(false);
+  const [aiNote, setAiNote] = useState(null); // { status: 'match'|'mismatch'|'error', code?: string }
 
   const allowedSubcategories = useMemo(() => {
     const contestCodes = contest?.allowed_subcategories || [];
@@ -105,6 +108,7 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
       reset();
       setImages([]);
       setVideo(null);
+      setAiNote(null);
       if (allowedSubcategories.length === 1) {
         setValue("betta_type", allowedSubcategories[0].id);
       }
@@ -112,11 +116,16 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
   }, [isOpen, allowedSubcategories, setValue, reset]);
 
   // [สำคัญ] Cleanup Object URLs เพื่อป้องกัน Memory Leaks
+  // หมายเหตุ: หลีกเลี่ยงการ revoke ระหว่างที่ยังใช้งานอยู่
+  // - เมื่อ remove รูป/วิดีโอ ให้ revoke ทันทีเฉพาะรายการนั้น
+  // - เมื่อ modal ถูกปิด (unmount) ค่อย revoke ทั้งหมดที่เหลืออยู่
   useEffect(() => {
     return () => {
-      images.forEach(file => URL.revokeObjectURL(file.preview));
+      images.forEach(file => {
+        try { URL.revokeObjectURL(file.preview); } catch {}
+      });
       if (video) {
-        URL.revokeObjectURL(video.preview);
+        try { URL.revokeObjectURL(video.preview); } catch {}
       }
     };
   }, [images, video]);
@@ -135,14 +144,91 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
   const { getRootProps: getRootPropsImages, getInputProps: getInputPropsImages } = useDropzone({ onDrop: onDropImages, accept: { "image/*": [] }, multiple: true });
   const { getRootProps: getRootPropsVideo, getInputProps: getInputPropsVideo } = useDropzone({ onDrop: onDropVideo, accept: { "video/*": [] }, multiple: false });
 
-  const removeImage = (index) => setImages(prev => prev.filter((_, i) => i !== index));
-  const removeVideo = () => setVideo(null);
+  const removeImage = (index) => {
+    setImages(prev => {
+      const target = prev[index];
+      if (target?.preview) {
+        try { URL.revokeObjectURL(target.preview); } catch {}
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+  const removeVideo = () => {
+    setVideo(prev => {
+      if (prev?.preview) {
+        try { URL.revokeObjectURL(prev.preview); } catch {}
+      }
+      return null;
+    });
+  };
+
+  // Live AI check when images or betta_type changes (debounced)
+  const watchedBettaType = watch("betta_type");
+  useEffect(() => {
+    if (!isOpen) return;
+    if (images.length === 0 || !watchedBettaType) { setAiNote(null); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setAiChecking(true);
+      try {
+        const aiResult = await modelService.analyzeForCompetition({ betta_type: watchedBettaType }, [images[0]]);
+        const predictedCode = aiResult?.final_label?.code || aiResult?.top1?.display_code || null;
+        const predictedName = aiResult?.final_label?.name || aiResult?.top1?.display_name || null;
+        if (!cancelled && predictedCode) {
+          const predictedUpper = String(predictedCode).toUpperCase();
+          const allowed = (contest?.allowed_subcategories || []).map(c => String(c).toUpperCase());
+          const match = allowed.includes(predictedUpper);
+          setAiNote({ status: match ? 'match' : 'mismatch', code: predictedUpper, name: predictedName });
+          try {
+            const nameForShow = predictedName || predictedUpper;
+            if (match) toast.success(`AI ตรวจพบประเภท: ${nameForShow} — ตรงตามเงื่อนไข`);
+            else toast.warning(`AI ตรวจพบประเภท: ${nameForShow} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้`);
+          } catch {}
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setAiNote({ status: 'error' });
+          try { toast.info('ไม่สามารถใช้ AI ตรวจสอบได้ในขณะนี้'); } catch {}
+        }
+      } finally {
+        if (!cancelled) setAiChecking(false);
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [images, watchedBettaType, isOpen, contest]);
 
   const onSubmit = async (formData) => {
     if (images.length === 0) return toast.error("กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป");
     
     setIsSubmitting(true);
     try {
+      // เรียก AI เพื่อตรวจสอบประเภทเบื้องต้น (ไม่บล็อกการส่ง)
+      try {
+        const aiResult = await modelService.analyzeForCompetition(formData, images);
+        const predictedCode =
+          aiResult?.final_label?.code ||
+          aiResult?.top1?.display_code ||
+          aiResult?.data?.final_label?.code || null;
+        const predictedName =
+          aiResult?.final_label?.name ||
+          aiResult?.top1?.display_name ||
+          aiResult?.data?.final_label?.name || null;
+        if (predictedCode) {
+          const predictedUpper = String(predictedCode).toUpperCase();
+          const allowed = (contest?.allowed_subcategories || []).map(c => String(c).toUpperCase());
+          const nameForShow = predictedName || predictedUpper;
+          if (allowed.includes(predictedUpper)) {
+            toast.success(`AI ตรวจพบประเภท: ${nameForShow} — ตรงตามเงื่อนไข`);
+          } else {
+            toast.warning(`AI ตรวจพบประเภท: ${nameForShow} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้`);
+          }
+        }
+      } catch (e) {
+        // ไม่ขัดขวางการส่ง ถ้า AI ล้มเหลว
+        // แสดงเป็น info เพื่อให้ผู้ใช้ทราบว่า AI ไม่พร้อมใช้งานตอนนี้
+        toast.info("ไม่สามารถใช้ AI ตรวจสอบได้ในขณะนี้ จะส่งข้อมูลต่อไป");
+      }
+
       const apiFormData = new FormData();
       apiFormData.append('contest_id', contest.id);
       apiFormData.append('betta_name', formData.betta_name);
@@ -155,8 +241,29 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
         apiFormData.append('video', video);
       }
 
-      await submitBettaForCompetition(apiFormData);
-      toast.success(`สมัครเข้าร่วม "${contest.name}" สำเร็จ!`);
+      const response = await submitBettaForCompetition(apiFormData);
+      
+      // ตรวจสอบ AI validation warning
+      if (response.aiValidation && response.aiValidation.warning) {
+        const warning = response.aiValidation.warning;
+        const severity = warning.severity;
+        
+        if (severity === 'error') {
+          toast.error(warning.message);
+        } else if (severity === 'warning') {
+          toast.warning(warning.message);
+        } else {
+          toast.info(warning.message);
+        }
+        
+        // แสดง success message หลังจาก warning
+        setTimeout(() => {
+          toast.success(`สมัครเข้าร่วม "${contest.name}" สำเร็จ!`);
+        }, 1000);
+      } else {
+        toast.success(`สมัครเข้าร่วม "${contest.name}" สำเร็จ!`);
+      }
+      
       onRequestClose();
     } catch (error) {
       toast.error(error.message || "เกิดข้อผิดพลาดในการส่งข้อมูล");
@@ -201,6 +308,15 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
               ))}
             </select>
             {errors.betta_type && <span className="text-red-500 text-sm">{errors.betta_type.message}</span>}
+            {aiNote && (
+              <div className={`mt-2 text-sm ${aiNote.status === 'match' ? 'text-green-600' : aiNote.status === 'mismatch' ? 'text-amber-600' : 'text-gray-500'}`}>
+                {aiChecking ? 'AI กำลังตรวจสอบภาพ...' : (
+                  aiNote.status === 'match' ? `AI ตรวจพบประเภท: ${aiNote.code} — ตรงตามเงื่อนไข` :
+                  aiNote.status === 'mismatch' ? `AI ตรวจพบประเภท: ${aiNote.code} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้` :
+                  'ไม่สามารถใช้ AI ตรวจสอบได้ในขณะนี้'
+                )}
+              </div>
+            )}
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

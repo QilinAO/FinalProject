@@ -71,9 +71,24 @@ const SignUp = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-200 to-red-200 p-4">
-      <div className="w-full max-w-lg bg-white p-6 sm:p-8 rounded-2xl shadow-xl">
-        <h2 className="text-3xl font-bold text-center mb-6 text-purple-700">สร้างบัญชีใหม่</h2>
+    <main className="page-container">
+      <section className="page-hero">
+        <div className="page-hero-content">
+          <div className="text-center max-w-5xl mx-auto">
+            <h1 className="text-5xl md:text-7xl font-bold mb-8">
+              ✨ สร้างบัญชีใหม่
+            </h1>
+            <p className="text-2xl md:text-3xl text-white/95 font-medium leading-relaxed">
+              เข้าร่วมชุมชนคนรักปลากัดกับเรา
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="page-main">
+        <section className="page-section">
+          <div className="container-responsive">
+            <div className="content-card max-w-2xl mx-auto">
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -146,16 +161,19 @@ const SignUp = () => {
           </button>
         </form>
 
-        <div className="text-center mt-6">
-          <p className="text-gray-600">
-            มีบัญชีอยู่แล้ว?{" "}
-            <Link to="/login" className="text-purple-600 hover:underline font-medium">
-              เข้าสู่ระบบที่นี่
-            </Link>
-          </p>
-        </div>
+              <div className="text-center mt-6">
+                <p className="text-gray-600">
+                  มีบัญชีอยู่แล้ว?{" "}
+                  <Link to="/login" className="text-purple-600 hover:underline font-medium">
+                    เข้าสู่ระบบที่นี่
+                  </Link>
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
 

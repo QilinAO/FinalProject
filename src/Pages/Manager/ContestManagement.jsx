@@ -84,11 +84,22 @@ const ContestManagement = () => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) return toast.error("ขนาดไฟล์ต้องไม่เกิน 5MB");
-      setFormData(prev => ({ ...prev, posterFile: file, posterPreview: URL.createObjectURL(file) }));
+      setFormData(prev => {
+        // revoke URL เดิมถ้ามีเพื่อลด memory leak
+        if (prev.posterPreview) {
+          try { URL.revokeObjectURL(prev.posterPreview); } catch {}
+        }
+        return { ...prev, posterFile: file, posterPreview: URL.createObjectURL(file) };
+      });
     }
   };
 
-  const handleRemoveImage = () => setFormData(prev => ({ ...prev, posterFile: null, posterPreview: null }));
+  const handleRemoveImage = () => setFormData(prev => {
+    if (prev.posterPreview) {
+      try { URL.revokeObjectURL(prev.posterPreview); } catch {}
+    }
+    return { ...prev, posterFile: null, posterPreview: null };
+  });
 
   const handleSubcategoryChange = (subcatId, isChecked) => {
     setFormData(prev => {

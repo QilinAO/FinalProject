@@ -131,13 +131,11 @@ const SingleContestPage = () => {
         </div>
       </main>
 
-      {content && (
-        <SubmissionFormModal
-          isOpen={isModalOpen}
-          onRequestClose={() => setIsModalOpen(false)}
-          contest={content}
-        />
-      )}
+      <SubmissionFormModal
+        isOpen={isModalOpen}
+        onRequestClose={() => setIsModalOpen(false)}
+        contest={content}
+      />
     </>
   );
 };

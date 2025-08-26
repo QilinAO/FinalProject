@@ -117,11 +117,16 @@ export const getScoringSchema = (bettaType) => {
 
 /**
  * ดึงประวัติการทำงานทั้งหมด
- * (เรียกใช้ API: GET /api/experts/history?type=...)
+ * (เรียกใช้ API: GET /api/experts/history/evaluations หรือ /api/experts/history/contests)
  * @param {'quality' | 'competition'} type - ประเภทของประวัติที่ต้องการ
  */
 export const getExpertHistory = (type) => {
-  return apiService.get(`/experts/history?type=${type}`);
+  if (type === 'quality') {
+    return apiService.get('/experts/history/evaluations');
+  } else if (type === 'competition') {
+    return apiService.get('/experts/history/contests');
+  }
+  return apiService.get('/experts/history/evaluations'); // default
 };
 
 /**

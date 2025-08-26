@@ -27,6 +27,9 @@ const HistoryTable = ({ data, type }) => {
                             {isQuality ? 'ชื่อปลา' : 'ชื่อการแข่งขัน'}
                         </th>
                         <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">ประเภท</th>
+                        {isQuality && (
+                            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">เจ้าของ</th>
+                        )}
                         <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">วันที่เสร็จสิ้น</th>
                         {isQuality && (
                             <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">คะแนน</th>
@@ -36,11 +39,22 @@ const HistoryTable = ({ data, type }) => {
                 <tbody className="divide-y divide-gray-200">
                     {data.map(item => (
                         <tr key={item.id} className="hover:bg-gray-50">
-                            <td className="py-4 px-4 font-medium text-gray-800">{item.name}</td>
-                            <td className="py-4 px-4 text-gray-600">{item.type}</td>
-                            <td className="py-4 px-4 text-gray-600">{new Date(item.date).toLocaleDateString('th-TH')}</td>
+                            <td className="py-4 px-4 font-medium text-gray-800">
+                                {isQuality ? item.fish_name : item.name}
+                            </td>
+                            <td className="py-4 px-4 text-gray-600">
+                                {isQuality ? item.fish_type : item.type}
+                            </td>
                             {isQuality && (
-                                <td className="py-4 px-4 font-bold text-teal-600">{item.score}</td>
+                                <td className="py-4 px-4 text-gray-600">
+                                    {item.owner_name}
+                                </td>
+                            )}
+                            <td className="py-4 px-4 text-gray-600">
+                                {new Date(isQuality ? item.evaluated_at : item.date).toLocaleDateString('th-TH')}
+                            </td>
+                            {isQuality && (
+                                <td className="py-4 px-4 font-bold text-teal-600">{item.total_score}</td>
                             )}
                         </tr>
                     ))}

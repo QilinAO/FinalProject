@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Plus, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { expertService } from '../../services/expertService';
+import * as expertService from '../../services/expertService';
 
 const SpecialitiesManagement = () => {
   const [specialities, setSpecialities] = useState([]);
@@ -43,8 +43,8 @@ const SpecialitiesManagement = () => {
         expertService.getSpecialitiesSuggestions()
       ]);
       
-      setSpecialities(specialitiesResponse.data || []);
-      setSuggestions(suggestionsResponse.data || []);
+      setSpecialities(specialitiesResponse.data?.specialities || []);
+      setSuggestions(suggestionsResponse.data?.suggestions || []);
     } catch (error) {
       console.error('Error loading specialities:', error);
       toast.error('ไม่สามารถโหลดข้อมูลความเชี่ยวชาญได้');

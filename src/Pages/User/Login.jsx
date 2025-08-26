@@ -55,14 +55,24 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-200 to-red-200 p-4">
-      <div className="flex flex-col md:flex-row w-full max-w-4xl bg-white rounded-lg shadow-lg overflow-hidden">
-        <div className="hidden md:block md:w-1/2 bg-purple-50 p-6 flex items-center justify-center">
-            <h2 className="text-xl text-purple-600 font-semibold">
-              ยินดีต้อนรับสู่ BettaFish
-            </h2>
+    <main className="page-container">
+      <section className="page-hero">
+        <div className="page-hero-content">
+          <div className="text-center max-w-5xl mx-auto">
+            <h1 className="text-5xl md:text-7xl font-bold mb-8">
+              🔐 เข้าสู่ระบบ
+            </h1>
+            <p className="text-2xl md:text-3xl text-white/95 font-medium leading-relaxed">
+              ยินดีต้อนรับกลับสู่ BettaFish Platform
+            </p>
+          </div>
         </div>
-        <div className="w-full md:w-1/2 p-8">
+      </section>
+
+      <div className="page-main">
+        <section className="page-section">
+          <div className="container-responsive">
+            <div className="content-card max-w-2xl mx-auto">
           <h2 className="text-3xl font-bold text-center mb-4 text-purple-700">
             เข้าสู่ระบบ
           </h2>
@@ -84,9 +94,11 @@ const Login = () => {
               <Link to="/forgot-password" className="text-purple-500 hover:underline">ลืมรหัสผ่าน?</Link>
               <Link to="/signup" className="text-purple-500 hover:underline">สมัครสมาชิก</Link>
           </div>
-        </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
 

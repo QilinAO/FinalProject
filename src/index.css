@@ -1,3 +1,499 @@
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Base styles for better accessibility and readability */
+@layer base {
+  html {
+    font-family: 'Noto Sans Thai', 'Kanit', 'Inter', system-ui, sans-serif;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply text-neutral-900 font-body;
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+  }
+
+  /* Improved focus styles for accessibility */
+  *:focus {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+
+  /* Better button and input styles */
+  button, input, select, textarea {
+    @apply font-body;
+  }
+
+  /* Improved link styles */
+  a {
+    @apply text-primary-600 hover:text-primary-700 transition-colors duration-200;
+  }
+
+  /* Better heading hierarchy */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold text-neutral-900;
+  }
+
+  h1 { @apply text-4xl md:text-5xl lg:text-6xl; }
+  h2 { @apply text-3xl md:text-4xl lg:text-5xl; }
+  h3 { @apply text-2xl md:text-3xl lg:text-4xl; }
+  h4 { @apply text-xl md:text-2xl lg:text-3xl; }
+  h5 { @apply text-lg md:text-xl lg:text-2xl; }
+  h6 { @apply text-base md:text-lg lg:text-xl; }
+}
+
+/* Global Layout Utilities */
+@layer utilities {
+  /* Standard Page Layouts */
+  .page-container {
+    @apply min-h-screen;
+  }
+  
+  .page-hero {
+    @apply relative py-20 lg:py-28 overflow-hidden;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+  
+  .page-hero-content {
+    @apply container-responsive relative z-10 text-white;
+  }
+  
+  .page-main {
+    @apply relative;
+    background: linear-gradient(to bottom, rgba(102, 126, 234, 0.1) 0%, rgba(255, 255, 255, 0.95) 20%, #ffffff 100%);
+  }
+  
+  .page-section {
+    @apply py-16 lg:py-20;
+  }
+  
+  /* Content Wrappers */
+  .content-card {
+    @apply bg-white rounded-3xl shadow-large p-8 lg:p-12 border border-white/20 backdrop-blur-sm;
+  }
+  
+  .content-grid {
+    @apply grid gap-8;
+  }
+  
+  /* Standard spacing */
+  .section-padding {
+    @apply px-6 sm:px-8 lg:px-12;
+  }
+}
+
+/* Component styles */
+@layer components {
+  /* Card component */
+  .card {
+    @apply bg-white rounded-2xl shadow-soft border border-neutral-200 p-6;
+  }
+
+  .card-hover {
+    @apply card hover:shadow-medium transition-all duration-300 hover:-translate-y-1;
+  }
+
+  /* Button components */
+  .btn {
+    @apply inline-flex items-center justify-center px-6 py-3 rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-soft hover:shadow-medium;
+  }
+
+  .btn-secondary {
+    @apply btn bg-secondary-600 text-white hover:bg-secondary-700 focus:ring-secondary-500 shadow-soft hover:shadow-medium;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent-600 text-white hover:bg-accent-700 focus:ring-accent-500 shadow-soft hover:shadow-medium;
+  }
+
+  .btn-outline {
+    @apply btn border-2 border-primary-600 text-primary-600 hover:bg-primary-600 hover:text-white focus:ring-primary-500;
+  }
+
+  .btn-ghost {
+    @apply btn text-neutral-700 hover:bg-neutral-100 focus:ring-neutral-500;
+  }
+
+  .btn-sm {
+    @apply px-4 py-2 text-sm rounded-lg;
+  }
+
+  .btn-lg {
+    @apply px-8 py-4 text-lg rounded-2xl;
+  }
+
+  /* Form components */
+  .form-input {
+    @apply w-full px-4 py-3 border border-neutral-300 rounded-xl bg-white text-neutral-900 placeholder-neutral-500 focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 transition-all duration-200;
+  }
+
+  .form-select {
+    @apply form-input appearance-none bg-no-repeat bg-right pr-10;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-size: 1.5em 1.5em;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-neutral-700 mb-2;
+  }
+
+  .form-error {
+    @apply text-sm text-error-600 mt-1;
+  }
+
+  .form-success {
+    @apply text-sm text-success-600 mt-1;
+  }
+
+  /* Navigation components */
+  .nav-link {
+    @apply px-4 py-2 text-neutral-700 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-all duration-200 font-medium;
+  }
+
+  .nav-link-active {
+    @apply nav-link text-primary-600 bg-primary-50;
+  }
+
+  /* Badge components */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-800;
+  }
+
+  .badge-secondary {
+    @apply badge bg-secondary-100 text-secondary-800;
+  }
+
+  .badge-success {
+    @apply badge bg-success-100 text-success-800;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning-100 text-warning-800;
+  }
+
+  .badge-error {
+    @apply badge bg-error-100 text-error-800;
+  }
+
+  /* ========== BettaFish Design System - STATUS & STATE COLORS ========== */
+  .status-pending {
+    @apply bg-warning-100 text-warning-800 border-warning-200 px-2 py-1 text-xs font-semibold rounded-full;
+  }
+  
+  .status-approved {
+    @apply bg-success-100 text-success-800 border-success-200 px-2 py-1 text-xs font-semibold rounded-full;
+  }
+  
+  .status-active {
+    @apply bg-primary-100 text-primary-800 border-primary-200 px-2 py-1 text-xs font-semibold rounded-full;
+  }
+  
+  .status-rejected {
+    @apply bg-error-100 text-error-800 border-error-200 px-2 py-1 text-xs font-semibold rounded-full;
+  }
+
+  /* Contest specific statuses */
+  .contest-active {
+    @apply bg-primary-100 text-primary-800 border-primary-200 px-2 py-1 text-xs font-semibold rounded-full;
+  }
+  
+  .contest-closed {
+    @apply bg-warning-100 text-warning-800 border-warning-200 px-2 py-1 text-xs font-semibold rounded-full;
+  }
+  
+  .contest-judging {
+    @apply bg-secondary-100 text-secondary-800 border-secondary-200 px-2 py-1 text-xs font-semibold rounded-full;
+  }
+
+  /* Surface and layout components */
+  .surface-primary {
+    @apply bg-white border border-neutral-200 shadow-soft;
+  }
+  
+  .surface-secondary {
+    @apply bg-neutral-50 border border-neutral-200;
+  }
+  
+  .surface-accent {
+    @apply bg-gradient-to-br from-primary-50 to-secondary-50 border border-neutral-200;
+  }
+  
+  .surface-elevated {
+    @apply bg-white border border-neutral-200 shadow-medium;
+  }
+
+  /* BettaFish branded components */
+  .betta-gradient-bg {
+    @apply bg-gradient-to-br from-primary-600 via-secondary-600 to-accent-600;
+  }
+  
+  .betta-gradient-text {
+    @apply bg-gradient-to-r from-primary-600 via-secondary-600 to-accent-600 bg-clip-text text-transparent;
+  }
+  
+  .betta-card {
+    @apply surface-primary rounded-2xl p-6 hover:shadow-medium transition-all duration-300;
+  }
+  
+  .betta-card-interactive {
+    @apply betta-card hover:border-primary-300 hover:bg-primary-50 cursor-pointer hover:-translate-y-1;
+  }
+
+  /* Action buttons */
+  .action-approve {
+    @apply btn bg-success-600 text-white hover:bg-success-700 focus:ring-success-500;
+  }
+  
+  .action-reject {
+    @apply btn bg-error-600 text-white hover:bg-error-700 focus:ring-error-500;
+  }
+  
+  .action-pending {
+    @apply btn bg-warning-600 text-white hover:bg-warning-700 focus:ring-warning-500;
+  }
+
+  /* Text hierarchy */
+  .text-heading {
+    @apply text-neutral-900 font-display font-semibold leading-tight;
+  }
+  
+  .text-subheading {
+    @apply text-neutral-800 font-display font-medium leading-snug;
+  }
+  
+  .text-body {
+    @apply text-neutral-700 font-body leading-relaxed;
+  }
+  
+  .text-caption {
+    @apply text-neutral-600 font-body text-sm leading-normal;
+  }
+  
+  .text-muted {
+    @apply text-neutral-500 font-body text-sm leading-normal;
+  }
+
+  /* Enhanced text sizes */
+  .text-display {
+    @apply text-4xl md:text-5xl lg:text-6xl font-display font-bold leading-none;
+  }
+  
+  .text-title {
+    @apply text-2xl md:text-3xl lg:text-4xl font-display font-semibold leading-tight;
+  }
+  
+  .text-subtitle {
+    @apply text-lg md:text-xl font-display font-medium leading-snug;
+  }
+  
+  .text-body-lg {
+    @apply text-lg font-body leading-relaxed;
+  }
+  
+  .text-body-sm {
+    @apply text-sm font-body leading-relaxed;
+  }
+
+  /* Enhanced form components */
+  .form-input-enhanced {
+    @apply form-input transition-all duration-200 hover:border-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20;
+  }
+  
+  .form-select-enhanced {
+    @apply form-select transition-all duration-200 hover:border-primary-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20;
+  }
+
+  /* Layout utilities */
+  .page-header {
+    @apply mb-8 space-y-2;
+  }
+  
+  .page-title {
+    @apply text-heading text-3xl lg:text-4xl;
+  }
+  
+  .container-main {
+    @apply container-responsive py-6 lg:py-8;
+  }
+  
+  .section-spacing {
+    @apply py-12 lg:py-16;
+  }
+
+  /* Loading components */
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-neutral-300 border-t-primary-600;
+  }
+
+  .loading-container {
+    @apply flex items-center justify-center p-10;
+  }
+  
+  .loading-spinner-primary {
+    @apply loading-spinner w-8 h-8 border-primary-600;
+  }
+
+  /* Empty states */
+  .empty-state {
+    @apply text-center text-muted py-12;
+  }
+
+  /* Modal components */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50;
+  }
+
+  .modal-content {
+    @apply bg-white rounded-2xl shadow-large max-w-md w-full max-h-[90vh] overflow-y-auto;
+  }
+
+  /* Responsive container */
+  .container-responsive {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Grid layouts */
+  .grid-responsive {
+    @apply grid gap-6 sm:gap-8 lg:gap-10;
+  }
+
+  .grid-cols-responsive {
+    @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  /* Text utilities */
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent;
+  }
+
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .animate-bounce-soft {
+    animation: bounceSoft 0.6s ease-in-out;
+  }
+
+  .animate-stagger-in {
+    animation: staggerIn 0.6s ease-out forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  @keyframes staggerIn {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Utility styles */
+
+
+@layer utilities {
+  /* Line clamp utilities */
+  .line-clamp-1, .truncate-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2, .truncate-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3, .truncate-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+
+  .line-clamp-4 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+  }
+
+  .line-clamp-5 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 5;
+  }
+
+  /* Scrollbar styling */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.neutral.300') theme('colors.neutral.100');
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-neutral-100 rounded-full;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-neutral-300 rounded-full hover:bg-neutral-400;
+  }
+
+  /* Print styles */
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .card {
+      @apply border-2 border-neutral-900;
+    }
+    
+    .btn {
+      @apply border-2 border-current;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

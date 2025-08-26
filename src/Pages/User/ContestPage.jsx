@@ -69,30 +69,32 @@ const ContestPage = () => {
   // --- Main Render (JSX) ---
   return (
     <>
-      {/* พื้นหลังเต็มหน้าจอ */}
-      <div
-        className="fixed inset-0 -z-10 bg-gradient-to-br from-purple-200 via-pink-200 to-red-200"
-        aria-hidden="true"
-      />
-
-      <main className="relative min-h-screen w-screen overflow-x-hidden">
-        {/* กันทับเมนู fixed; ปรับ pt-* ให้ตรงความสูง navbar ของคุณ */}
-        <section className="w-full pt-24 sm:pt-28 lg:pt-32 pb-10 px-3 sm:px-6 lg:px-10">
-          {/* หัวข้อเต็มกว้าง ไม่จัดกึ่งกลาง */}
-          <div className="w-full">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-700 mb-4 sm:mb-6">
-              การประกวดที่กำลังเปิดรับสมัคร
-            </h1>
+      <main className="page-container">
+        <section className="page-hero">
+          <div className="page-hero-content">
+            <div className="text-center max-w-5xl mx-auto">
+              <h1 className="text-5xl md:text-7xl font-bold mb-8">
+                🏆 การประกวดปลากัด
+              </h1>
+              <p className="text-2xl md:text-3xl text-white/95 font-medium leading-relaxed">
+                ร่วมแข่งขันการประกวดปลากัดระดับมืออาชีพ
+              </p>
+            </div>
           </div>
+        </section>
+
+        <div className="page-main">
+          <section className="page-section">
+            <div className="container-responsive">
 
           {/* Loading / Error */}
           {loading && (
-            <div className="w-full bg-white/90 backdrop-blur rounded-xl shadow p-8 text-center text-gray-600">
+            <div className="w-full betta-card backdrop-blur text-center text-muted">
               กำลังโหลด...
             </div>
           )}
           {!loading && error && (
-            <div className="w-full bg-red-50 rounded-xl shadow p-8 text-center text-red-600">
+            <div className="w-full betta-card bg-error-50 text-center text-error-600">
               {error}
             </div>
           )}
@@ -106,7 +108,7 @@ const ContestPage = () => {
                   {contests.map((contest) => (
                     <article
                       key={contest.id}
-                      className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col hover:shadow-xl transition-shadow"
+                      className="betta-card-interactive overflow-hidden flex flex-col"
                     >
                       {/* โปสเตอร์: สูงแปรผันตามจอ, ปรับให้ครอบดี */}
                       <div className="h-44 sm:h-52 md:h-56 xl:h-60 overflow-hidden">
@@ -163,17 +165,17 @@ const ContestPage = () => {
               </div>
             )
           )}
-        </section>
+            </div>
+          </section>
+        </div>
       </main>
 
-      {/* Modal ส่งผลงาน */}
-      {selectedContest && (
-        <SubmissionFormModal
-          isOpen={isModalOpen}
-          onRequestClose={() => setIsModalOpen(false)}
-          contest={selectedContest}
-        />
-      )}
+      {/* Modal ส่งผลงาน - คงอยู่เสมอเพื่อหลีกเลี่ยงการเปิดซ้อนใน StrictMode */}
+      <SubmissionFormModal
+        isOpen={isModalOpen}
+        onRequestClose={() => { setIsModalOpen(false); setSelectedContest(null); }}
+        contest={selectedContest}
+      />
     </>
   );
 };

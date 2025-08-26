@@ -199,28 +199,56 @@ const Profile = () => {
 
   if (authLoading || isLoading) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen bg-gray-100">
-        <FiLoader className="animate-spin text-purple-600 text-5xl" />
-        <p className="mt-4 text-lg text-gray-700">กำลังโหลดข้อมูลโปรไฟล์...</p>
-      </div>
+      <main className="page-container">
+        <div className="page-hero">
+          <div className="page-hero-content">
+            <div className="text-center">
+              <FiLoader className="animate-spin text-white text-6xl mx-auto mb-6" />
+              <p className="text-2xl text-white/95 font-medium">กำลังโหลดข้อมูลโปรไฟล์...</p>
+            </div>
+          </div>
+        </div>
+      </main>
     );
   }
 
   if (!profileData) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen bg-gray-100">
-        <FiXCircle className="text-red-500 text-5xl" />
-        <p className="mt-4 text-lg text-gray-700">ไม่พบข้อมูลโปรไฟล์ หรือเซสชันหมดอายุ</p>
-        <button onClick={() => navigate('/login')} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-          ไปหน้าเข้าสู่ระบบ
-        </button>
-      </div>
+      <main className="page-container">
+        <div className="page-hero">
+          <div className="page-hero-content">
+            <div className="text-center">
+              <FiXCircle className="text-red-300 text-6xl mx-auto mb-6" />
+              <p className="text-2xl text-white/95 font-medium mb-8">ไม่พบข้อมูลโปรไฟล์ หรือเซสชันหมดอายุ</p>
+              <button onClick={() => navigate('/login')} className="px-8 py-4 bg-white text-purple-700 rounded-2xl hover:bg-gray-100 font-bold text-lg transition-all duration-300">
+                ไปหน้าเข้าสู่ระบบ
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl p-6 sm:p-8 space-y-6">
+    <main className="page-container">
+      <section className="page-hero">
+        <div className="page-hero-content">
+          <div className="text-center max-w-5xl mx-auto">
+            <h1 className="text-5xl md:text-7xl font-bold mb-8">
+              👤 โปรไฟล์ของฉัน
+            </h1>
+            <p className="text-2xl md:text-3xl text-white/95 font-medium leading-relaxed">
+              จัดการข้อมูลส่วนตัวและการตั้งค่าบัญชี
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <div className="page-main">
+        <section className="page-section">
+          <div className="container-responsive">
+            <div className="content-card max-w-4xl mx-auto">
         <div className="flex flex-col items-center">
           <ProfileImage
             avatarUrl={imagePreview || profileData?.avatar_url || defaultProfileImage}
@@ -251,8 +279,11 @@ const Profile = () => {
             onChange={handleChange}
           />
         </div>
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };
 

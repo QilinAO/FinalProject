@@ -29,7 +29,7 @@ import { PublicRoutes, ProtectedUserRoutes, AdminRoutes, ManagerRoutes, ExpertRo
 
 // --- Loading Fallback Component ---
 const LoadingFallback = () => (
-  <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gray-100">
+  <div className="min-h-screen w-full flex flex-col items-center justify-center">
     <LoaderCircle className="animate-spin text-purple-600" size={48} />
     <p className="mt-4 text-lg text-gray-700">กำลังโหลด...</p>
   </div>
