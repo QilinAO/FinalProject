@@ -10,10 +10,8 @@ README.md
 .env.production
 dist
 build
-.cache
-.parcel-cache
-.DS_Store
-*.log
-logs
 coverage
-.nyc_output
+.vscode
+.idea
+*.log
+.DS_Store

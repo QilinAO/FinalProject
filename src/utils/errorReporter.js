@@ -1,7 +1,7 @@
 // D:\ProJectFinal\Lasts\my-project\src\utils\errorReporter.js
 // รวมตัวช่วยส่ง client error ไปแบ็กเอนด์ + ติด global handlers
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
 
 function postJSON(url, body) {
   return fetch(url, {

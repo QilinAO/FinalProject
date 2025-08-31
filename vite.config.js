@@ -15,6 +15,19 @@ export default defineConfig({
 
   // การตั้งค่าสำหรับ Development Server
   server: {
+    // อนุญาตให้เข้าถึงจาก host ภายนอก
+    host: '0.0.0.0',
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      '.loca.lt',
+      'purple-bikes-learn.loca.lt',
+      'cruel-snakes-work.loca.lt',
+      '.ngrok-free.app',
+      '938cc95ee6a3.ngrok-free.app',
+      '8f053d9a1832.ngrok-free.app',
+      'c9d1a8e1f4a8.ngrok-free.app'
+    ],
     // ตั้งค่า Proxy เพื่อแก้ปัญหา CORS และเชื่อมต่อ Frontend กับ Backend
     proxy: {
       // [อัปเดต] เราจะดักจับทุก request ที่ขึ้นต้นด้วย '/api'
@@ -23,7 +36,7 @@ export default defineConfig({
       '/api': {
         
         // [อัปเดต] Target คือที่อยู่ของ Backend Server ของเรา ซึ่งรันอยู่ที่ Port 5000
-        target: 'http://localhost:5000',
+        target: 'http://betta-fish-backend:5000',
         
         // changeOrigin: จำเป็นสำหรับการทำ Proxy ข้าม Origin (localhost:5173 -> localhost:5000)
         changeOrigin: true,

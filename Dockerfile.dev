@@ -1,4 +1,4 @@
-# Development Dockerfile for React
+# Development Dockerfile for React app
 FROM node:18-alpine
 
 WORKDIR /app
@@ -6,14 +6,14 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including dev dependencies)
-RUN npm install
+# Install dependencies
+RUN npm ci
 
 # Copy source code
 COPY . .
 
-# Expose Vite dev server port
+# Expose port 5173
 EXPOSE 5173
 
-# Start Vite dev server
+# Start development server
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

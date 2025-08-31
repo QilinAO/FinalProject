@@ -14,7 +14,13 @@ export class ApiHttpError extends Error {
 }
 
 function buildUrl(base, endpoint, query) {
-  const url = new URL((endpoint || '').replace(/^\/+/, ''), (base.endsWith('/') ? base : base + '/') );
+  // ถ้า base เป็น relative path (เริ่มต้นด้วย /) ให้ใช้ window.location.origin
+  let fullBase = base;
+  if (base.startsWith('/') && typeof window !== 'undefined') {
+    fullBase = window.location.origin + base;
+  }
+  
+  const url = new URL((endpoint || '').replace(/^\/+/, ''), (fullBase.endsWith('/') ? fullBase : fullBase + '/') );
   if (query && typeof query === 'object') {
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(query)) {

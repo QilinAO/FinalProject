@@ -81,8 +81,9 @@ export async function rejectContestSubmission(contestId, submissionId, reason) {
 }
 
 /* ===== Judges ===== */
-export async function getExpertList() {
-  const res = await apiService.get('/manager/experts');
+export async function getExpertList(contestId = null) {
+  const params = contestId ? { contest_id: contestId } : {};
+  const res = await apiService.get('/manager/experts', params);
   return unwrap(res, 'โหลดรายชื่อผู้เชี่ยวชาญล้มเหลว');
 }
 
