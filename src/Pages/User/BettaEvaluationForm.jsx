@@ -11,7 +11,7 @@ import { isUuid } from "../../utils/apiErrorHandler";
 import apiService from "../../services/api";
 
 // Environment variables
-const API_BASE = import.meta.env.VITE_BETTA_API || "http://localhost:19003";
+const API_BASE = "http://localhost:5000/api"; // Local development API
 const API_TOPK = Number(import.meta.env.VITE_BETTA_TOPK ?? 3) || 3;
 const API_THRESHOLD = Number(import.meta.env.VITE_BETTA_THRESHOLD ?? 0.9) || 0.9;
 
