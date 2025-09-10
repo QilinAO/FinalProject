@@ -13,14 +13,20 @@ export default defineConfig({
     allowedHosts: [
       'localhost',
       '127.0.0.1',
+      '192.168.96.28',       // เพิ่ม IP วงแลนของเครื่อง
+      '134.236.136.191',     // ถ้าจะเข้าผ่าน IP สาธารณะ
       '.loca.lt',
       '.ngrok-free.app'
     ],
+    hmr: {
+      host: '192.168.96.28', // ให้ HMR วิ่งผ่าน IP วงแลน
+      port: 5173
+    },
     
     // API Proxy Configuration
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:4000', // เปลี่ยนจาก 5000 เป็น 4000 ให้ตรงกับ backend
         changeOrigin: true,
         secure: false,
         configure: (proxy, _options) => {

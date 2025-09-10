@@ -60,10 +60,30 @@ export const submitQualityScores = (assignmentId, scoresData) => {
 
 /**
  * ดึงข้อมูลการแข่งขันทั้งหมด (ทั้งคำเชิญและรายการที่รับแล้ว)
- * (เรียกใช้ API: GET /api/experts/judging)
+ * 尝试 /experts/judging，若失败或无数据回退 /experts/contests/judging
  */
-export const getJudgingContests = () => {
-  return apiService.get('/experts/judging');
+export const getJudgingContests = async () => {
+  // 主请求
+  try {
+    const res = await apiService.get('/experts/judging');
+    const data = res?.data ?? res;
+    const invitations = Array.isArray(data?.invitations) ? data.invitations : [];
+    const myContests = Array.isArray(data?.myContests) ? data.myContests : [];
+    if (invitations.length > 0 || myContests.length > 0) {
+      return { data: { invitations, myContests } };
+    }
+  } catch (_e) {
+    // 忽略，进入回退
+  }
+  // 回退
+  const fallback = await apiService.get('/experts/contests/judging');
+  const fbData = fallback?.data ?? fallback;
+  return {
+    data: {
+      invitations: Array.isArray(fbData?.invitations) ? fbData.invitations : [],
+      myContests: Array.isArray(fbData?.myContests) ? fbData.myContests : [],
+    }
+  };
 };
 
 /**
@@ -72,8 +92,13 @@ export const getJudgingContests = () => {
  * @param {string} contestId - ID การประกวด
  * @param {'accepted' | 'rejected'} response - การตอบรับ
  */
-export const respondToJudgeInvitation = (contestId, response) => {
-    return apiService.post(`/experts/judging/${contestId}/respond`, { response });
+export const respondToJudgeInvitation = (contestId, response, reason = '') => {
+    const normalized = String(response).toLowerCase();
+    if (normalized === 'accepted' || normalized === 'accept') {
+      return apiService.post(`/experts/contests/${contestId}/accept`, {});
+    }
+    // rejected / decline → ต้องส่ง reason ได้ (optional)
+    return apiService.post(`/experts/contests/${contestId}/decline`, { reason });
 };
 
 /**

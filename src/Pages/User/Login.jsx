@@ -10,7 +10,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -22,30 +22,18 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
-    if (!formData.email || !formData.password) {
+    if (!formData.identifier || !formData.password) {
       setMessage("กรุณากรอกข้อมูลให้ครบถ้วน!");
       return;
     }
 
     setLoading(true);
     try {
-      // ตรงนี้ Login.jsx คาดหวัง { profile } กลับมา ซึ่ง AuthContext ที่แก้ไปแล้วจะส่งให้
-      const { profile } = await signin(formData.email, formData.password); 
-      
+      const { profile } = await signin(formData.identifier, formData.password); 
       toast.success("เข้าสู่ระบบสำเร็จ!");
-
-      const roleRedirects = {
-        admin: '/admin/dashboard',
-        manager: '/manager/dashboard',
-        expert: '/expert/dashboard',
-        user: '/',
-      };
-
-      // ตรงนี้ `profile` จะมี `role` จาก Backend แล้ว
+      const roleRedirects = { admin: '/admin/dashboard', manager: '/manager/dashboard', expert: '/expert/dashboard', user: '/', };
       const redirectTo = roleRedirects[profile?.role] || '/';
-
       navigate(redirectTo, { replace: true });
-      
     } catch (error) {
       setMessage(`เกิดข้อผิดพลาด: ${error.message}`);
       toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
@@ -79,8 +67,8 @@ const Login = () => {
           {message && <div className={`mb-4 text-center text-red-500`}>{message}</div>}
           <form onSubmit={handleSubmit}>
               <div>
-                <label className="block mb-2 font-medium text-gray-700">อีเมล</label>
-                <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="กรอกอีเมลของคุณ" required />
+                <label className="block mb-2 font-medium text-gray-700">อีเมลหรือชื่อผู้ใช้</label>
+                <input type="text" name="identifier" value={formData.identifier} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="กรอกอีเมลหรือชื่อผู้ใช้" required />
               </div>
               <div className="mt-4">
                 <label className="block mb-2 font-medium text-gray-700">รหัสผ่าน</label>

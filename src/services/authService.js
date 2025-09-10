@@ -54,9 +54,12 @@ export function getStoredUserProfile() {
   return getAuthUser();
 }
 
-export async function loginUser(email, password) {
+export async function loginUser(identifierOrEmail, password) {
   try {
-    const res = await apiService.post('/auth/signin', { email, password });
+    const payload = identifierOrEmail?.includes('@')
+      ? { email: identifierOrEmail, password }
+      : { identifier: identifierOrEmail, password };
+    const res = await apiService.post('/auth/signin', payload);
     const token = res?.token || res?.access_token;
     const profile = res?.profile;
 

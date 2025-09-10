@@ -1,4 +1,4 @@
-// D:\ProJectFinal\Lasts\my-project\src\pages\Manager\ContestManagement.jsx
+// D:\\ProJectFinal\\Lasts\\my-project\\src\\pages\\Manager\\ContestManagement.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { ImagePlus, Trash2, LoaderCircle } from "lucide-react";
 import { toast } from "react-toastify";
@@ -29,7 +29,6 @@ const ContestManagement = () => {
     end_date: "",
     is_vote_open: false,
     allowed_subcategories: [],
-    fish_type: "", // เพิ่ม field fish_type
     judge_ids: [],
     posterFile: null,
     posterPreview: null,
@@ -144,7 +143,6 @@ const ContestManagement = () => {
         apiFormData.append('end_date', formData.end_date);
         apiFormData.append('is_vote_open', String(formData.is_vote_open));
         apiFormData.append('allowed_subcategories', JSON.stringify(formData.allowed_subcategories));
-        apiFormData.append('fish_type', formData.fish_type); // เพิ่มการส่ง fish_type
         apiFormData.append('judge_ids', JSON.stringify(formData.judge_ids));
       } else {
         // ข่าว: ให้สถานะเป็น published ตาม schema
@@ -229,25 +227,6 @@ const ContestManagement = () => {
                     </label>
                   ))}
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">8.5. ประเภทปลากัดหลักสำหรับการแข่งขัน:</label>
-                <select 
-                  name="fish_type" 
-                  value={formData.fish_type} 
-                  onChange={handleInputChange} 
-                  className="w-full p-3 border rounded-md bg-gray-50"
-                  required
-                >
-                  <option value="">-- เลือกประเภทปลากัดหลัก --</option>
-                  {BETTA_SUBCATEGORIES.map((sub) => (
-                    <option key={sub.id} value={sub.label}>{sub.label}</option>
-                  ))}
-                </select>
-                <p className="text-sm text-gray-600 mt-1">
-                  💡 เลือกประเภทปลากัดหลักที่จะใช้ในการกรองผู้เชี่ยวชาญสำหรับมอบหมายกรรมการ
-                </p>
               </div>
 
               <div>

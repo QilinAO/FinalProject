@@ -11,13 +11,14 @@ import { isUuid } from "../../utils/apiErrorHandler";
 import apiService from "../../services/api";
 
 // Environment variables
-const API_BASE = "http://localhost:5000/api"; // Local development API
+// const API_BASE = "http://localhost:4000/api"; // Local development API (ยกเลิกการฮาร์ดโค้ด ใช้ proxy /api แทน)
 const API_TOPK = Number(import.meta.env.VITE_BETTA_TOPK ?? 3) || 3;
 const API_THRESHOLD = Number(import.meta.env.VITE_BETTA_THRESHOLD ?? 0.9) || 0.9;
 
 const BettaEvaluationForm = () => {
   // --- States ---
   const [images, setImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [video, setVideo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [autoSuggest, setAutoSuggest] = useState(null);
@@ -49,53 +50,37 @@ const BettaEvaluationForm = () => {
 
     try {
       const fd = new FormData();
-      fd.append("file", imageFile);
+      fd.append("image", imageFile);
 
-      const resp = await fetch(`${API_BASE}/predict?topk=${API_TOPK}&threshold=${API_THRESHOLD}`, {
-        method: "POST",
-        body: fd,
-      });
-
-      if (!resp.ok) {
-        // ไม่เอา error โผล่ผู้ใช้มากนัก
-        console.error("Predict API not ok:", resp.status);
-        return;
-      }
-
-      const result = await resp.json();
-      // โครงสร้างผลลัพธ์จาก API ใหม่:
-      // { topk: [...], top1: {...}, is_confident: bool, final_label: {code,name,reason} }
+      // ใช้ proxy เส้นทาง /api เพื่อให้มือถือใน LAN เรียกได้แน่นอน
+      const json = await apiService.post('/model/analyze-single', fd);
+      const result = json?.data;
       const top1 = result?.top1;
       const finalLabel = result?.final_label;
 
       if (top1 && finalLabel) {
-        const code = finalLabel.code;      // เช่น 'D','F','C' หรือ 'OTHER'
-        const name = finalLabel.name;      // ชื่อไทยตาม taxonomy
+        const code = finalLabel.code;
+        const name = finalLabel.name;
         const prob = typeof top1.prob === "number" ? top1.prob : null;
 
-        // แนะนำเฉพาะเมื่อมั่นใจและไม่ใช่ OTHER
         if (result.is_confident && code && code !== "OTHER") {
-          // ตรวจว่า code มีอยู่ใน BETTA_TYPES ไหม
           const exist = BETTA_TYPES.some((opt) => opt.value === code);
           if (exist) {
-            // ตั้งค่าให้ select เลือกตาม AI
             setValue("betta_type", code, { shouldValidate: true, shouldDirty: true });
             setAutoSuggest({ code, name, prob });
             toast.success(`AI วิเคราะห์เป็น: ${name}${prob != null ? ` (${(prob * 100).toFixed(1)}%)` : ""}`);
           } else {
-            // code ไม่อยู่ในรายการ BETTA_TYPES ก็แจ้งเฉย ๆ
             setAutoSuggest({ code, name, prob });
             toast.info(`AI วิเคราะห์ได้: ${name} (แต่ไม่มีรหัสนี้ในตัวเลือก)`);
           }
         } else {
-          // ไม่มั่นใจ หรือ OTHER
           setAutoSuggest({ code: code || "OTHER", name: name || "อื่นๆ / ไม่แน่ใจ", prob });
           toast.info(`AI ยังไม่มั่นใจ (${name || "OTHER"}) — กรุณาเลือกประเภทด้วยตนเอง`);
         }
       }
     } catch (err) {
       console.error("Error analyzing betta type:", err);
-      // เงียบไว้สำหรับ UX
+      toast.error("ไม่สามารถติดต่อเซิร์ฟเวอร์วิเคราะห์ภาพได้");
     }
   }, [setValue]);
 
@@ -122,33 +107,55 @@ const BettaEvaluationForm = () => {
     }
   }, [submissionMode, contestId]);
 
-  const imagePreviews = useMemo(
-    () => images.map((f) => ({ file: f, url: URL.createObjectURL(f) })),
-    [images]
-  );
-  const videoPreview = useMemo(() => (video ? URL.createObjectURL(video) : null), [video]);
+  const [videoPreview, setVideoPreview] = useState(null);
 
   useEffect(() => {
-    return () => {
-      imagePreviews.forEach((p) => URL.revokeObjectURL(p.url));
-      if (videoPreview) URL.revokeObjectURL(videoPreview);
-    };
-  }, [imagePreviews, videoPreview]);
+    if (video) {
+      const url = URL.createObjectURL(video);
+      setVideoPreview(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setVideoPreview(null);
+    }
+  }, [video]);
 
+  // ย้ายการสร้าง URL ไปทำเฉพาะตอน drop และลบตอน remove/unmount เพื่อลดโอกาส revoke เร็วเกินไป
   const onDropImages = (acceptedFiles) => {
-    setImages((prev) => {
-      const newImages = [...prev, ...acceptedFiles];
-      if (newImages.length > 3) {
-        toast.info("เลือกรูปได้สูงสุด 3 รูป");
-      }
-      return newImages.slice(0, 3);
-    });
+    // เตือนเรื่องจำนวนไฟล์เกิน นอก callback ของ setState
+    if (images.length + acceptedFiles.length > 3) {
+      toast.info("เลือกรูปได้สูงสุด 3 รูป");
+    }
+
+    const newFiles = [...images, ...acceptedFiles].slice(0, 3);
+    const added = acceptedFiles.slice(0, Math.max(0, 3 - images.length));
+    const newPreviews = added.map((f) => ({ file: f, url: URL.createObjectURL(f) }));
+
+    setImages(newFiles);
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
   };
 
   const onDropVideo = (acceptedFiles) => setVideo(acceptedFiles[0]);
 
-  const removeImage = (index) => setImages((prev) => prev.filter((_, i) => i !== index));
+  const removeImage = (index) => {
+    setImagePreviews((prev) => {
+      const target = prev[index];
+      if (target?.url) URL.revokeObjectURL(target.url);
+      return prev.filter((_, i) => i !== index);
+    });
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
   const removeVideo = () => setVideo(null);
+
+  useEffect(() => {
+    // cleanup เมื่อ component ถูกถอด เพื่อไม่ให้รั่วหน่วยความจำ
+    return () => {
+      try {
+        imagePreviews.forEach((p) => p?.url && URL.revokeObjectURL(p.url));
+      } catch {}
+    };
+  }, [imagePreviews]);
 
   const { getRootProps: getRootPropsImages, getInputProps: getInputPropsImages } = useDropzone({
     onDrop: onDropImages,

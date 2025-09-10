@@ -1,16 +1,27 @@
-// D:\ProJectFinal\Lasts\my-project\src\Pages\Manager\ContestList.jsx (ฉบับแก้ไขสมบูรณ์)
+// D:\\ProJectFinal\\Lasts\\my-project\\src\\Pages\\Manager\\ContestList.jsx (ฉบับแก้ไขสมบูรณ์)
 
 import React, { useState, useEffect, useMemo } from "react";
 import {
   Search, Filter, Eye, Edit2, Trash2,
   CheckCircle, XCircle, Clock, CircleDot, Trophy,
-  Frown, FileText, LoaderCircle, AlertTriangle
+  Frown, FileText, LoaderCircle, AlertTriangle, Calendar
 } from "lucide-react";
 import ManagerMenu from "../../Component/ManagerMenu";
 import Modal from "react-modal";
 import EditContestModal from "./EditContestModal";
 import { toast } from "react-toastify";
 import { getMyContests, deleteMyContest } from "../../services/managerService";
+
+// Poster 占位
+const POSTER_PLACEHOLDER =
+  'data:image/svg+xml;utf8,\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">\
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">\
+<stop offset="0%" stop-color="#eef2ff"/><stop offset="100%" stop-color="#fce7f3"/>\
+</linearGradient></defs>\
+<rect width="640" height="360" fill="url(#g)"/>\
+<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="#9ca3af" font-family="Arial" font-size="24">No poster</text>\
+</svg>';
 
 const ContestList = () => {
   const [allItems, setAllItems] = useState([]);
@@ -122,6 +133,25 @@ const ContestList = () => {
     return statusMap[status]?.icon || <FileText className="text-gray-600" size={20} />;
   };
 
+  const statusBadgeCls = (status) => {
+    switch (status) {
+      case 'draft':
+        return 'bg-gray-100 text-gray-700 border-gray-200';
+      case 'กำลังดำเนินการ':
+        return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'ปิดรับสมัคร':
+        return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'ตัดสิน':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'ประกาศผล':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'ยกเลิก':
+        return 'bg-red-100 text-red-700 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center p-10">
@@ -186,55 +216,70 @@ const ContestList = () => {
             </div>
 
             <div className="border-t pt-4">
-              <div className="grid gap-4">
-                {filteredItems.length > 0 ? (
-                  filteredItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center hover:shadow-lg transition"
-                    >
-                      <div className="flex items-center space-x-4">
-                        {getStatusIcon(item.status)}
-                        <div>
-                          <h3 className="font-semibold text-lg text-gray-800">{item.name}</h3>
-                          <span className="text-sm text-gray-500 capitalize">
-                            {item.category}
-                            {item.status && ` - ${item.status}`}
-                          </span>
+              {filteredItems.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {filteredItems.map((item) => (
+                    <div key={item.id} className="group bg-white rounded-2xl overflow-hidden border-2 shadow-sm hover:shadow-md transition-all cursor-pointer border-gray-200 hover:border-purple-300">
+                      <div className="relative aspect-[16/9] overflow-hidden">
+                        <img
+                          src={item.poster_url || POSTER_PLACEHOLDER}
+                          alt={item.name}
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.01] transition-transform"
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => { e.currentTarget.src = POSTER_PLACEHOLDER; }}
+                        />
+                        {item.category === 'การประกวด' && (
+                          <div className={`absolute left-3 top-3 px-2.5 py-1 text-xs font-semibold rounded-full border ${statusBadgeCls(item.status)}`}>
+                            {item.status || 'draft'}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <h3 className="text-lg font-bold text-gray-800 line-clamp-2 mb-1">{item.name}</h3>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar size={16} />
+                          <span>{formatReadableDate(item.start_date)} - {formatReadableDate(item.end_date)}</span>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className="text-xs text-gray-500 capitalize">{item.category}</span>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleShowDetails(item)}
+                              className="p-2 text-blue-600 hover:bg-blue-100 rounded-full"
+                              title="ดูรายละเอียด"
+                              type="button"
+                            >
+                              <Eye />
+                            </button>
+                            <button
+                              onClick={() => handleEditItem(item)}
+                              className="p-2 text-yellow-600 hover:bg-yellow-100 rounded-full"
+                              title="แก้ไข"
+                              type="button"
+                            >
+                              <Edit2 />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteItem(item)}
+                              className="p-2 text-red-600 hover:bg-red-100 rounded-full"
+                              title="ลบ"
+                              type="button"
+                            >
+                              <Trash2 />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex space-x-2 mt-3 sm:mt-0 flex-shrink-0">
-                        <button
-                          onClick={() => handleShowDetails(item)}
-                          className="p-2 text-blue-600 hover:bg-blue-100 rounded-full"
-                          title="ดูรายละเอียด"
-                        >
-                          <Eye />
-                        </button>
-                        <button
-                          onClick={() => handleEditItem(item)}
-                          className="p-2 text-yellow-600 hover:bg-yellow-100 rounded-full"
-                          title="แก้ไข"
-                        >
-                          <Edit2 />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteItem(item)}
-                          className="p-2 text-red-600 hover:bg-red-100 rounded-full"
-                          title="ลบ"
-                        >
-                          <Trash2 />
-                        </button>
-                      </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center text-gray-500 py-10 flex flex-col items-center">
-                    <Frown size={48} className="mb-2" />
-                    <span className="font-semibold">ไม่พบรายการที่ตรงกับเงื่อนไข</span>
-                  </div>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-10 flex flex-col items-center">
+                  <Frown size={48} className="mb-2" />
+                  <span className="font-semibold">ไม่พบรายการที่ตรงกับเงื่อนไข</span>
+                </div>
+              )}
             </div>
           </div>
 

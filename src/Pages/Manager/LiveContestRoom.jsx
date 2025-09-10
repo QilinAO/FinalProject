@@ -1,13 +1,66 @@
-// D:\ProJectFinal\Lasts\my-project\src\Pages\Manager\LiveContestRoom.jsx (ฉบับสมบูรณ์)
+// D:\\ProJectFinal\\Lasts\\my-project\\src\\Pages\\Manager\\LiveContestRoom.jsx (ฉบับสมบูรณ์)
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from 'react-modal';
 import { toast } from 'react-toastify';
-import { Check, X, Eye, LoaderCircle, XCircle, PlayCircle, Lock, Trophy, AlertTriangle, ArrowLeft, Users, CheckSquare, Clock } from 'lucide-react';
+import { Check, X, Eye, LoaderCircle, XCircle, PlayCircle, Lock, Trophy, AlertTriangle, ArrowLeft, Users, CheckSquare, Clock, Calendar, Sparkles, Info, Fish } from 'lucide-react';
 
 import ManagerMenu from '../../Component/ManagerMenu';
 import { getMyContests, getContestSubmissions, updateSubmissionStatus, updateMyContest, finalizeContest } from '../../services/managerService';
-import { getBettaTypeLabel } from '../../utils/bettaTypes';
+import { getBettaTypeLabel, BETTA_TYPE_MAP_ID, BETTA_TYPE_MAP_SLUG } from '../../utils/bettaTypes';
+
+// อ่านค่า API_BASE จากบริการ axios ที่ตั้งไว้ หรือ fallback จาก Vite env
+import apiService from '../../services/api';
+
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '') || 'http://localhost:5000/api';
+
+// Helper: name -> code (prefer uppercase code)
+const NAME_TO_CODE = (() => {
+  const map = {};
+  Object.entries(BETTA_TYPE_MAP_ID).forEach(([code, name]) => {
+    const upper = code.toUpperCase();
+    map[name] = upper; // overwrite with uppercase preference
+  });
+  return map;
+})();
+
+const normalizeToCode = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const v = value.trim();
+  // 1) Already a code A-H
+  if (/^[A-Ha-h]$/.test(v)) return v.toUpperCase();
+  // 2) Thai label -> code
+  if (NAME_TO_CODE[v]) return NAME_TO_CODE[v];
+  // 3) slug -> label -> code
+  if (BETTA_TYPE_MAP_SLUG && BETTA_TYPE_MAP_SLUG[v]) {
+    const name = BETTA_TYPE_MAP_SLUG[v];
+    if (NAME_TO_CODE[name]) return NAME_TO_CODE[name];
+  }
+  return null;
+};
+
+const POSTER_PLACEHOLDER =
+  'data:image/svg+xml;utf8,\
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360">\
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">\
+<stop offset="0%" stop-color="#eef2ff"/><stop offset="100%" stop-color="#fce7f3"/>\
+</linearGradient></defs>\
+<rect width="640" height="360" fill="url(#g)"/>\
+<text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="#9ca3af" font-family="Arial" font-size="24">No poster</text>\
+</svg>';
+
+const statusBadgeCls = (status) => {
+  switch (status) {
+    case 'กำลังดำเนินการ':
+      return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    case 'ปิดรับสมัคร':
+      return 'bg-amber-100 text-amber-800 border-amber-200';
+    case 'ตัดสิน':
+      return 'bg-purple-100 text-purple-800 border-purple-200';
+    default:
+      return 'bg-gray-100 text-gray-700 border-gray-200';
+  }
+};
 
 const StatCard = ({ icon, label, value, onClick, isActive }) => (
   <button
@@ -36,6 +89,13 @@ const LiveContestRoom = () => {
   const [submissionInModal, setSubmissionInModal] = useState(null);
   const [filterStatus, setFilterStatus] = useState('pending');
   const [actionLoading, setActionLoading] = useState(false);
+  // NEW: AI states
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+  const [aiScan, setAiScan] = useState({}); // { [submissionId]: { code,name,prob,is_confident,allowed,allowedList, error? } }
+  const [aiDetailModalOpen, setAiDetailModalOpen] = useState(false);
+  const [aiDetail, setAiDetail] = useState(null);
+  const [aiFilter, setAiFilter] = useState('all'); // all | match | mismatch | uncertain
 
   useEffect(() => {
     Modal.setAppElement('#root');
@@ -60,6 +120,18 @@ const LiveContestRoom = () => {
     try {
       const data = await getContestSubmissions(contestId);
       setSubmissions(data || []);
+      // เติม allowed_subcategories ให้ selectedContest หากยังว่างและมีจาก backend
+      if (selectedContest && (!Array.isArray(selectedContest.allowed_subcategories) || selectedContest.allowed_subcategories.length === 0)) {
+        const fromApi = (data && data[0] && data[0].contest && Array.isArray(data[0].contest.allowed_subcategories)) ? data[0].contest.allowed_subcategories : null;
+        const fromFishType = (data && data[0] && data[0].contest && Array.isArray(data[0].contest.fish_type)) ? data[0].contest.fish_type : null;
+        if (fromApi || fromFishType) {
+          setSelectedContest((prev) => prev ? { ...prev, allowed_subcategories: fromApi || prev.allowed_subcategories, fish_type: fromFishType || prev.fish_type } : prev);
+        }
+      }
+      // เริ่มสแกน AI เบื้องหลัง
+      if (Array.isArray(data) && data.length > 0) {
+        scanAllWithAI(data);
+      }
     } catch (error) {
       toast.error("ไม่สามารถดึงรายชื่อผู้สมัครได้");
     } finally {
@@ -69,6 +141,7 @@ const LiveContestRoom = () => {
 
   const handleSelectContest = (contest) => {
     setSelectedContest(contest);
+    setAiScan({});
     fetchSubmissions(contest.id);
   };
 
@@ -77,22 +150,19 @@ const LiveContestRoom = () => {
     setSubmissions([]);
     setSelectedSubmissions([]);
     setFilterStatus('pending');
+    setAiResult(null);
+    setAiScan({});
   };
 
   const handleSelectSubmission = (submissionId) => {
     setSelectedSubmissions(prev =>
-      prev.includes(submissionId) ?
-      prev.filter(id => id !== submissionId) :
-      [...prev, submissionId]
+      prev.includes(submissionId) ? prev.filter(id => id !== submissionId) : [...prev, submissionId]
     );
   };
 
   const handleSelectAll = (submissionIds) => {
-    if (selectedSubmissions.length === submissionIds.length) {
-      setSelectedSubmissions([]);
-    } else {
-      setSelectedSubmissions(submissionIds);
-    }
+    if (selectedSubmissions.length === submissionIds.length) setSelectedSubmissions([]);
+    else setSelectedSubmissions(submissionIds);
   };
 
   const handleBulkAction = async (newStatus) => {
@@ -102,17 +172,13 @@ const LiveContestRoom = () => {
       let reason;
       if (newStatus === 'rejected') {
         reason = window.prompt('ระบุเหตุผลที่ปฏิเสธ/ยกเลิกการอนุมัติ:');
-        if (!reason || !reason.trim()) {
-          setIsProcessing(false);
-          return toast.info('ยกเลิก เนื่องจากไม่ได้ระบุเหตุผล');
-        }
+        if (!reason || !reason.trim()) { setIsProcessing(false); return toast.info('ยกเลิก เนื่องจากไม่ได้ระบุเหตุผล'); }
       }
       const promises = selectedSubmissions.map(id => updateSubmissionStatus(id, newStatus, reason));
       await Promise.all(promises);
       toast.success(`อัปเดตสถานะ ${selectedSubmissions.length} รายการสำเร็จ!`);
       setSelectedSubmissions([]);
       await fetchSubmissions(selectedContest.id);
-      // สลับแท็บอัตโนมัติหลังอัปเดต
       if (newStatus === 'approved') setFilterStatus('approved');
       else if (newStatus === 'rejected') setFilterStatus('rejected');
     } catch (error) {
@@ -129,7 +195,6 @@ const LiveContestRoom = () => {
       const response = await updateMyContest(selectedContest.id, { status: newStatus });
       setSelectedContest(response);
       toast.success(`เปลี่ยนสถานะเป็น "${newStatus}" สำเร็จ!`);
-      // เมื่อปิดรับสมัคร เสนอให้เปิดการตัดสินทันที เพื่อให้ผู้เชี่ยวชาญให้คะแนนได้
       if (newStatus === 'ปิดรับสมัคร') {
         const proceed = window.confirm('ต้องการเปิดการตัดสินตอนนี้เพื่อให้ผู้เชี่ยวชาญเริ่มให้คะแนนหรือไม่?');
         if (proceed) {
@@ -160,35 +225,188 @@ const LiveContestRoom = () => {
     }
   };
 
-  const ContestCard = ({ contest }) => (
-    <div onClick={() => handleSelectContest(contest)} className="betta-card-interactive">
-      <h3 className="font-bold text-xl text-heading truncate">{contest.name}</h3>
-            <p className={`mt-2 text-sm font-semibold px-2 py-1 inline-block rounded-full ${
-          {'กำลังดำเนินการ': 'contest-active', 'ปิดรับสมัคร': 'contest-closed', 'ตัดสิน': 'contest-judging'}[contest.status]
-        }`}>{contest.status}</p>
-      <div className="mt-4 text-muted text-sm flex justify-between">
-        <span><Users size={14} className="inline mr-1"/> {contest.submissions?.length || 0} ผู้สมัคร</span>
-        <span><Users size={14} className="inline mr-1"/> {contest.contest_judges?.length || 0} กรรมการ</span>
+  // --- AI helpers ---
+  const computeAllowedList = (contestOverride = null) => {
+    const src = contestOverride || selectedContest || {};
+    const raw = (Array.isArray(src.allowed_subcategories) && src.allowed_subcategories.length > 0
+      ? src.allowed_subcategories
+      : Array.isArray(src.fish_type) ? src.fish_type : []) || [];
+    const codes = raw
+      .map((x) => normalizeToCode(String(x)))
+      .filter((x) => x);
+    return Array.from(new Set(codes));
+  };
+
+  const analyzeFirstImageWithAI = async (submission) => {
+    try {
+      const firstUrl = submission?.fish_image_urls?.[0];
+      if (!firstUrl) { toast.info('ไม่มีรูปภาพสำหรับตรวจด้วย AI'); return; }
+      setAiLoading(true);
+      setAiResult(null);
+
+      const imgResp = await fetch(firstUrl, { mode: 'cors' });
+      const blob = await imgResp.blob();
+      const fd = new FormData();
+      fd.append('image', blob, 'fish.jpg');
+      fd.append('analysis_type', 'competition');
+
+      // ใช้ proxy ผ่าน Vite
+      const res = await apiService.post('/model/analyze-single', fd);
+      const data = res?.data ?? res; // รองรับกรณี wrapper success/data
+      const code = (data?.final_label?.code || 'OTHER').toString().toUpperCase();
+      const name = data?.final_label?.name || getBettaTypeLabel(code) || 'อื่นๆ';
+      const prob = typeof data?.top1?.prob === 'number' ? data.top1.prob : null;
+      const isConfident = !!data?.is_confident;
+
+      const allowed = computeAllowedList(submission?.contest || null);
+      const isAllowed = allowed.includes(code);
+
+      setAiResult({ code, name, prob, is_confident: isConfident, allowed: isAllowed, allowedList: allowed });
+      setAiScan(prev => ({ ...prev, [submission.id]: { code, name, prob, is_confident: isConfident, allowed: isAllowed, allowedList: allowed } }));
+
+      if (isConfident && isAllowed) toast.success(`AI แนะนำ: ตรงประเภท (${name}${prob != null ? ` ${(prob*100).toFixed(1)}%` : ''})`);
+      else if (isConfident && !isAllowed) toast.warn(`AI พบว่าไม่ตรงประเภทที่อนุญาต (${name})`);
+      else toast.info(`AI ยังไม่มั่นใจ (${name})`);
+    } catch (e) {
+      console.error(e);
+      toast.error('วิเคราะห์ด้วย AI ไม่สำเร็จ');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const analyzeFirstSilently = async (submission) => {
+    try {
+      const firstUrl = submission?.fish_image_urls?.[0];
+      if (!firstUrl) return { error: 'no-image' };
+      const imgResp = await fetch(firstUrl, { mode: 'cors' });
+      const blob = await imgResp.blob();
+      const fd = new FormData();
+      fd.append('image', blob, 'fish.jpg');
+      fd.append('analysis_type', 'competition');
+
+      // ใช้ proxy ผ่าน Vite
+      const res = await apiService.post('/model/analyze-single', fd);
+      const data = res?.data ?? res;
+      const code = (data?.final_label?.code || 'OTHER').toString().toUpperCase();
+      const name = data?.final_label?.name || getBettaTypeLabel(code) || 'อื่นๆ';
+      const prob = typeof data?.top1?.prob === 'number' ? data.top1.prob : null;
+      const isConfident = !!data?.is_confident;
+      const allowed = computeAllowedList(submission?.contest || null);
+      const isAllowed = allowed.includes(code);
+      return { code, name, prob, is_confident: isConfident, allowed: isAllowed, allowedList: allowed };
+    } catch (e) {
+      return { error: e.message || 'analyze-failed' };
+    }
+  };
+
+  const scanAllWithAI = async (list) => {
+    // จำกัดพร้อมกัน 3 รายการเพื่อไม่ให้โหลดหนักเกินไป
+    const concurrency = 3;
+    let idx = 0;
+    const worker = async () => {
+      while (idx < list.length) {
+        const current = list[idx++];
+        const res = await analyzeFirstSilently(current);
+        setAiScan(prev => ({ ...prev, [current.id]: res }));
+      }
+    };
+    await Promise.all(new Array(concurrency).fill(0).map(() => worker()));
+  };
+
+  const quickApprove = async (submissionId) => {
+    setActionLoading(true);
+    try {
+      await updateSubmissionStatus(submissionId, 'approved');
+      toast.success('อนุมัติสำเร็จ');
+      await fetchSubmissions(selectedContest.id);
+      setFilterStatus('approved');
+    } catch (e) { toast.error(e.message || 'อนุมัติไม่สำเร็จ'); } finally { setActionLoading(false); }
+  };
+
+  const quickReject = async (submissionId) => {
+    const reason = window.prompt('ระบุเหตุผลที่ปฏิเสธ/ยกเลิกการอนุมัติ:');
+    if (!reason || !reason.trim()) return;
+    setActionLoading(true);
+    try {
+      await updateSubmissionStatus(submissionId, 'rejected', reason.trim());
+      toast.warn('ปฏิเสธแล้ว');
+      await fetchSubmissions(selectedContest.id);
+      setFilterStatus('rejected');
+    } catch (e) { toast.error(e.message || 'ปฏิเสธไม่สำเร็จ'); } finally { setActionLoading(false); }
+  };
+
+  const ContestCard = ({ contest }) => {
+    const activeCount = (contest.contest_judges || []).filter(j => j.status !== 'declined').length;
+    const submissionCount = (contest.submissions || []).length;
+    return (
+      <div
+        onClick={() => handleSelectContest(contest)}
+        className="group bg-white rounded-2xl overflow-hidden border-2 shadow-sm hover:shadow-md transition-all cursor-pointer border-gray-200 hover:border-purple-300"
+      >
+        <div className="relative aspect-[16/9] overflow-hidden">
+          <img
+            src={contest.poster_url || POSTER_PLACEHOLDER}
+            alt={contest.name}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.01] transition-transform"
+            loading="lazy"
+            decoding="async"
+            onError={(e) => { e.currentTarget.src = POSTER_PLACEHOLDER; }}
+          />
+          <div className={`absolute left-3 top-3 px-2.5 py-1 text-xs font-semibold rounded-full border ${statusBadgeCls(contest.status)}`}>{contest.status}</div>
+        </div>
+        <div className="p-4">
+          <h3 className="text-lg font-bold text-gray-800 line-clamp-2 mb-1">{contest.name}</h3>
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Calendar size={16} />
+            <span>{contest.start_date ? new Date(contest.start_date).toLocaleDateString('th-TH') : 'N/A'} - {contest.end_date ? new Date(contest.end_date).toLocaleDateString('th-TH') : 'N/A'}</span>
+          </div>
+          <div className="mt-3 text-xs text-gray-500 flex items-center gap-4">
+            <span><Users size={14} className="inline mr-1"/> กรรมการ {activeCount}</span>
+            <span><Users size={14} className="inline mr-1"/> ผู้สมัคร {submissionCount}</span>
+          </div>
       </div>
     </div>
   );
+  };
 
   const ContestDashboard = () => {
     const stats = useMemo(() => ({
-      total: submissions.length,
+      totalOwners: Array.from(new Set(submissions.map(s => s?.owner?.id))).filter(Boolean).length,
+      totalFish: submissions.length,
       pending: submissions.filter(s => s.status === 'pending').length,
       approved: submissions.filter(s => s.status === 'approved').length,
       rejected: submissions.filter(s => s.status === 'rejected').length,
     }), [submissions]);
 
     const filteredSubmissions = useMemo(() => {
-      if (filterStatus === 'all') return submissions;
-      return submissions.filter(s => s.status === filterStatus);
-    }, [submissions, filterStatus]);
+      let list = submissions;
+      if (filterStatus !== 'all') list = list.filter(s => s.status === filterStatus);
+      if (aiFilter !== 'all') {
+        list = list.filter((s) => {
+          const r = aiScan[s.id];
+          if (!r) return false; // ยังไม่สแกน ให้ไม่ติดในโหมดกรองเฉพาะ
+          if (aiFilter === 'match') return !!(r.is_confident && r.allowed);
+          if (aiFilter === 'mismatch') return !!(r.is_confident && !r.allowed);
+          if (aiFilter === 'uncertain') return !r.is_confident;
+          return true;
+        });
+      }
+      return list;
+    }, [submissions, filterStatus, aiFilter, aiScan]);
 
     const getStatusBadge = (status) => {
       const styles = { approved: 'status-approved', rejected: 'status-rejected', pending: 'status-pending' };
       return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${styles[status] || 'status-closed'}`}>{status}</span>;
+    };
+
+    const renderAiBadge = (subId) => {
+      const r = aiScan[subId];
+      if (!r) return <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">กำลังตรวจ...</span>;
+      if (r.error) return <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-600">ไม่พร้อม</span>;
+      if (r.is_confident && r.allowed) return <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700">ตรง</span>;
+      if (r.is_confident && !r.allowed) return <span className="px-2 py-1 text-xs rounded bg-red-100 text-red-700">ไม่ตรง</span>;
+      return <span className="px-2 py-1 text-xs rounded bg-amber-100 text-amber-700">ยังไม่มั่นใจ</span>;
     };
 
     return (
@@ -214,8 +432,9 @@ const LiveContestRoom = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <StatCard icon={<Users/>} label="ผู้สมัครทั้งหมด" value={stats.total} onClick={() => setFilterStatus('all')} isActive={filterStatus === 'all'} />
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <StatCard icon={<Users/>} label="ผู้สมัครทั้งหมด (นับคน)" value={stats.totalOwners} onClick={() => setFilterStatus('all')} isActive={filterStatus === 'all'} />
+          <StatCard icon={<Fish/>} label="ปลากัดทั้งหมด (ตัว)" value={stats.totalFish} onClick={() => setFilterStatus('all')} isActive={false} />
           <StatCard icon={<Clock/>} label="รออนุมัติ" value={stats.pending} onClick={() => setFilterStatus('pending')} isActive={filterStatus === 'pending'} />
           <StatCard icon={<CheckSquare/>} label="อนุมัติแล้ว" value={stats.approved} onClick={() => setFilterStatus('approved')} isActive={filterStatus === 'approved'} />
           <StatCard icon={<XCircle/>} label="ปฏิเสธ" value={stats.rejected} onClick={() => setFilterStatus('rejected')} isActive={filterStatus === 'rejected'} />
@@ -223,33 +442,64 @@ const LiveContestRoom = () => {
 
         <div className="bg-white p-4 rounded-lg shadow-md">
           <h3 className="text-xl font-bold mb-4">รายชื่อผู้สมัคร (สถานะ: {{all: 'ทั้งหมด', pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', rejected: 'ปฏิเสธ'}[filterStatus]})</h3>
-          {filterStatus === 'pending' && stats.pending > 0 && (
-            <div className="mb-4 flex gap-2">
+          {filterStatus === 'pending' && (
+            <div className="mb-4 flex flex-wrap gap-2 items-center">
+              {stats.pending > 0 && (
+                <>
               <button onClick={() => handleBulkAction('approved')} className="px-3 py-1 bg-green-500 text-white rounded text-sm">อนุมัติที่เลือก</button>
               <button onClick={() => handleBulkAction('rejected')} className="px-3 py-1 bg-red-500 text-white rounded text-sm">ปฏิเสธที่เลือก</button>
+                </>
+              )}
+              <div className="ml-auto flex gap-2">
+                <span className="text-sm text-gray-600 self-center">กรองตามสถานะ AI:</span>
+                <button className={`px-3 py-1 text-sm rounded ${aiFilter==='all'?'bg-gray-800 text-white':'bg-gray-100 text-gray-700'}`} onClick={() => setAiFilter('all')}>ทั้งหมด</button>
+                <button className={`px-3 py-1 text-sm rounded ${aiFilter==='match'?'bg-green-600 text-white':'bg-gray-100 text-gray-700'}`} onClick={() => setAiFilter('match')}>ตรง</button>
+                <button className={`px-3 py-1 text-sm rounded ${aiFilter==='mismatch'?'bg-red-600 text-white':'bg-gray-100 text-gray-700'}`} onClick={() => setAiFilter('mismatch')}>ไม่ตรง</button>
+                <button className={`px-3 py-1 text-sm rounded ${aiFilter==='uncertain'?'bg-amber-600 text-white':'bg-gray-100 text-gray-700'}`} onClick={() => setAiFilter('uncertain')}>ยังไม่มั่นใจ</button>
+              </div>
+            </div>
+          )}
+          {filterStatus === 'approved' && (
+            <div className="mb-4 flex flex-wrap gap-2 items-center">
+              {stats.approved > 0 && (
+                <>
+                  <button onClick={() => handleBulkAction('rejected')} className="px-3 py-1 bg-red-600 text-white rounded text-sm">ยกเลิกการอนุมัติที่เลือก</button>
+                </>
+              )}
             </div>
           )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  {filterStatus === 'pending' && <th className="p-2 text-left w-10"><input type="checkbox" onChange={() => handleSelectAll(submissions.filter(s => s.status === 'pending').map(s => s.id))} checked={selectedSubmissions.length === stats.pending && stats.pending > 0}/></th>}
+                  {(filterStatus === 'pending' || filterStatus === 'approved') && <th className="p-2 text-left w-10"><input type="checkbox" onChange={() => handleSelectAll(filteredSubmissions.map(s => s.id))} checked={selectedSubmissions.length === filteredSubmissions.length && filteredSubmissions.length > 0}/></th>}
                   <th className="p-2 text-left">ชื่อปลากัด</th>
                   <th className="p-2 text-left">เจ้าของ</th>
                   <th className="p-2 text-left">สถานะ</th>
+                  <th className="p-2 text-left">สถานะ AI</th>
                   <th className="p-2 text-center">จัดการ</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSubmissions.map(sub => (
                   <tr key={sub.id} className="border-b hover:bg-gray-50">
-                    {filterStatus === 'pending' && <td className="p-2"><input type="checkbox" checked={selectedSubmissions.includes(sub.id)} onChange={() => handleSelectSubmission(sub.id)}/></td>}
+                    {(filterStatus === 'pending' || filterStatus === 'approved') && <td className="p-2"><input type="checkbox" checked={selectedSubmissions.includes(sub.id)} onChange={() => handleSelectSubmission(sub.id)}/></td>}
                     <td className="p-2 font-semibold">{sub.fish_name}</td>
                     <td className="p-2 text-gray-600">{sub.owner.first_name}</td>
                     <td className="p-2">{getStatusBadge(sub.status)}</td>
+                    <td className="p-2">
+                      <div className="flex items-center gap-2">
+                        {renderAiBadge(sub.id)}
+                        {aiScan[sub.id] && aiScan[sub.id].is_confident && !aiScan[sub.id].allowed && (
+                          <button className="px-2 py-1 text-xs rounded bg-amber-100 text-amber-800 flex items-center gap-1" onClick={() => { setAiDetail(aiScan[sub.id]); setAiDetailModalOpen(true); }}>
+                            <Info size={14}/> คุณสมบัติไม่ตรง
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-2 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => { setSubmissionInModal(sub); setDetailModalOpen(true); }} className="p-1 text-blue-600" title="ดูรายละเอียด"><Eye size={16}/></button>
+                        <button onClick={() => { setSubmissionInModal(sub); setDetailModalOpen(true); setAiResult(null); }} className="p-1 text-blue-600" title="ดูรายละเอียด"><Eye size={16}/></button>
                         {sub.status !== 'approved' && (
                           <button disabled={actionLoading} onClick={async () => {
                             setActionLoading(true);
@@ -305,12 +555,11 @@ const LiveContestRoom = () => {
         )}
       </div>
       
+      {/* Modal รายละเอียดของ submission พร้อมปุ่มเรียก AI */}
       <Modal isOpen={detailModalOpen} onRequestClose={() => setDetailModalOpen(false)} style={{ overlay: { zIndex: 1050 } }} className="fixed inset-0 flex items-center justify-center p-4">
         {submissionInModal && (
           <div className="bg-white rounded-lg p-6 max-w-lg w-full relative">
-            <button onClick={() => setDetailModalOpen(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600">
-              <XCircle />
-            </button>
+            <button onClick={() => setDetailModalOpen(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><XCircle /></button>
             <h2 className="text-2xl font-bold mb-4">{submissionInModal.fish_name}</h2>
             <div className="space-y-4 mb-4">
               <div>
@@ -329,6 +578,64 @@ const LiveContestRoom = () => {
             <div className="space-y-2 text-gray-700">
                <p><strong>เจ้าของ:</strong> {submissionInModal.owner?.first_name}</p>
                <p><strong>ประเภท:</strong> {getBettaTypeLabel(submissionInModal.fish_type)}</p>
+            </div>
+
+            <div className="mt-4 p-3 rounded-lg border bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-purple-600"/>
+                  <span className="font-semibold">ให้ AI ตรวจสอบความตรงประเภท (รูปแรก)</span>
+                </div>
+                <button
+                  disabled={aiLoading}
+                  onClick={() => analyzeFirstImageWithAI(submissionInModal)}
+                  className="px-3 py-1.5 text-sm rounded bg-purple-600 text-white disabled:opacity-50"
+                >{aiLoading ? 'กำลังวิเคราะห์...' : 'วิเคราะห์ด้วย AI'}</button>
+              </div>
+
+              {aiResult && (
+                <div className="mt-3 text-sm">
+                  <p>
+                    ผล AI: <strong>{aiResult.name}</strong>
+                    {aiResult.prob != null && <> ({(aiResult.prob * 100).toFixed(1)}%)</>}
+                    {' '}• ความมั่นใจ: {aiResult.is_confident ? 'สูง' : 'ต่ำ'}
+                  </p>
+                  <p>ประเภทที่อนุญาต: {Array.isArray(aiResult.allowedList) && aiResult.allowedList.length > 0 ? aiResult.allowedList.join(', ') : 'ไม่ระบุ'}</p>
+                  <div className="mt-2 flex gap-2">
+                    {aiResult.is_confident && aiResult.allowed ? (
+                      <>
+                        <span className="px-2 py-1 rounded bg-green-100 text-green-700 text-xs">แนะนำ: อนุมัติ</span>
+                        <button className="px-3 py-1 text-xs rounded bg-green-600 text-white" onClick={() => quickApprove(submissionInModal.id)}>อนุมัติทันที</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="px-2 py-1 rounded bg-amber-100 text-amber-700 text-xs">แนะนำ: ตรวจสอบเพิ่ม/ปฏิเสธ</span>
+                        <button className="px-3 py-1 text-xs rounded bg-red-600 text-white" onClick={() => quickReject(submissionInModal.id)}>ปฏิเสธทันที</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Modal รายละเอียดคุณสมบัติไม่ตรง */}
+      <Modal isOpen={aiDetailModalOpen} onRequestClose={() => setAiDetailModalOpen(false)} style={{ overlay: { zIndex: 1052 } }} className="fixed inset-0 flex items-center justify-center p-4">
+        {aiDetail && (
+          <div className="bg-white rounded-lg p-6 max-w-md w-full relative">
+            <button onClick={() => setAiDetailModalOpen(false)} className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"><XCircle /></button>
+            <h3 className="text-xl font-bold mb-2">รายละเอียดคุณสมบัติไม่ตรง</h3>
+            <p className="text-sm text-gray-700">AI วิเคราะห์ได้: <strong>{aiDetail.name}</strong>{aiDetail.prob != null && <> ({(aiDetail.prob*100).toFixed(1)}%)</>}</p>
+            <p className="text-sm text-gray-700 mt-2">ประเภทที่อนุญาตของการประกวด:</p>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {(aiDetail.allowedList || []).map((t) => (
+                <span key={t} className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-xs">{t}</span>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="px-3 py-1.5 text-sm rounded bg-gray-200" onClick={() => setAiDetailModalOpen(false)}>ปิด</button>
             </div>
           </div>
         )}

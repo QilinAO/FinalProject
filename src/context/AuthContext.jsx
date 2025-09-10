@@ -138,8 +138,8 @@ export const AuthProvider = ({ children }) => {
    * - เรียก /auth/signin ผ่าน authService
    * - เก็บ token+profile แล้วตั้ง user ใน state
    */
-  const signin = async (email, password) => {
-    const { profile } = await loginUser(email, password);
+  const signin = async (identifier, password) => {
+    const { profile } = await loginUser(identifier, password);
     setUser(profile || null);
     return { profile };
   };
