@@ -113,6 +113,11 @@ export async function getScoresForSubmission(submissionId) {
   return unwrap(res, 'โหลดคะแนนของผู้สมัครล้มเหลว');
 }
 
+export async function getScoringProgress(contestId) {
+  const res = await apiService.get(`/manager/contests/${contestId}/scoring-progress`);
+  return unwrap(res, 'โหลดความคืบหน้าการให้คะแนนล้มเหลว');
+}
+
 /* ===== Notifications (manager scope) ===== */
 export async function listManagerNotifications(query = {}) {
   const res = await apiService.get('/manager/notifications', { query });
@@ -148,6 +153,7 @@ export default {
   getContestHistory,
   getAllResults,
   getScoresForSubmission,
+  getScoringProgress,
   listManagerNotifications,
   markNotificationRead,
   markAllNotificationsRead,

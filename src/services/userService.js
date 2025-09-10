@@ -54,3 +54,10 @@ export const getMyEvaluationHistory = () => {
 export const getMyCompetitionHistory = () => {
   return apiService.get('/users/history/competitions');
 };
+
+/**
+ * ดึงผลการแข่งขันแบบสาธารณะ (หลังประกาศผล)
+ */
+export const getPublicContestResults = (contestId) => {
+  return apiService.get(`/public/contests/${contestId}/results`);
+};

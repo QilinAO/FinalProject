@@ -69,16 +69,82 @@ const InvitationCard = ({ inv, onResponse }) => (
 const MyContestCard = ({ contest, onToggle, isExpanded, onScore }) => {
     const [submissions, setSubmissions] = useState([]);
     const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+    const [judgingNotOpen, setJudgingNotOpen] = useState(false);
+    
+    // ใช้ useCallback เพื่อป้องกันการสร้างฟังก์ชันใหม่ทุกครั้งที่ re-render
+    const fetchSubmissions = useCallback(() => {
+        setLoadingSubmissions(true);
+        setJudgingNotOpen(false);
+        getFishInContest(contest.id)
+            .then(res => setSubmissions(res.data || []))
+            .catch((err) => {
+                const msg = String(err?.message || '');
+                if (msg.includes('ยังไม่เปิดการตัดสิน')) {
+                    setJudgingNotOpen(true);
+                } else {
+                    toast.error(`ไม่สามารถโหลดรายชื่อปลาใน '${contest.name}' ได้`);
+                }
+            })
+            .finally(() => setLoadingSubmissions(false));
+    }, [contest.id, contest.name]);
+
 
     useEffect(() => {
-        if (isExpanded && submissions.length === 0) {
-            setLoadingSubmissions(true);
-            getFishInContest(contest.id)
-                .then(res => setSubmissions(res.data || []))
-                .catch(() => toast.error(`ไม่สามารถโหลดรายชื่อปลาใน '${contest.name}' ได้`))
-                .finally(() => setLoadingSubmissions(false));
+        if (isExpanded) {
+            fetchSubmissions();
         }
-    }, [isExpanded, contest.id, contest.name, submissions.length]);
+    }, [isExpanded, fetchSubmissions]);
+
+    // --- Compare & Quick Score states ---
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [compareOpen, setCompareOpen] = useState(false);
+    const [quickScores, setQuickScores] = useState({}); // { submissionId: number }
+
+    const toggleSelect = (id) => {
+        setSelectedIds(prev => {
+            const exists = prev.includes(id);
+            if (exists) return prev.filter(x => x !== id);
+            if (prev.length >= 10) {
+                toast.info('เลือกเปรียบเทียบได้สูงสุด 10 ตัว');
+                return prev;
+            }
+            return [...prev, id];
+        });
+    };
+
+    const openCompare = () => {
+        if (selectedIds.length < 2) {
+            toast.info('กรุณาเลือกอย่างน้อย 2 ตัวเพื่อเปรียบเทียบ');
+            return;
+        }
+        setCompareOpen(true);
+    };
+    const closeCompare = () => setCompareOpen(false);
+
+    const handleQuickScoreChange = (id, value) => {
+        const v = Math.max(0, Math.min(100, Number(value)));
+        setQuickScores(prev => ({ ...prev, [id]: isNaN(v) ? '' : v }));
+    };
+
+    const submitQuickScores = async () => {
+        const targets = selectedIds.filter(id => typeof quickScores[id] === 'number');
+        if (targets.length === 0) {
+            toast.info('กรุณากรอกคะแนนอย่างน้อย 1 รายการ');
+            return;
+        }
+        try {
+            for (const id of targets) {
+                await submitCompetitionScore(id, { scores: { mode: 'quick' }, totalScore: quickScores[id] });
+            }
+            toast.success(`บันทึกคะแนน ${targets.length} รายการสำเร็จ`);
+            setCompareOpen(false);
+            setSelectedIds([]);
+            setQuickScores({});
+            fetchSubmissions();
+        } catch (err) {
+            toast.error(err?.message || 'บันทึกคะแนนไม่สำเร็จ');
+        }
+    };
 
     return (
         <div className="group bg-white rounded-2xl overflow-hidden shadow-soft hover:shadow-large transition-all duration-300 border border-neutral-200/50 flex flex-col">
@@ -107,22 +173,46 @@ const MyContestCard = ({ contest, onToggle, isExpanded, onScore }) => {
             {isExpanded && (
                 <div className="p-5 border-t border-neutral-200">
                     <h4 className="font-semibold text-subheading mb-3">รายชื่อปลาที่ต้องให้คะแนน</h4>
-                    {loadingSubmissions ? (
+                    {judgingNotOpen ? (
+                        <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+                          ขณะนี้ยังไม่เปิดการตัดสินสำหรับรายการนี้ คุณสามารถตอบรับคำเชิญได้ก่อน เมื่อผู้จัดการเปิดสถานะ "ตัดสิน" แล้วจึงจะเห็นรายชื่อปลาสำหรับให้คะแนน
+                        </div>
+                    ) : loadingSubmissions ? (
                         <div className="flex items-center justify-center p-4"><LoaderCircle className="animate-spin text-primary-500" /><span className="ml-2 text-muted">กำลังโหลด...</span></div>
                     ) : submissions.length > 0 ? (
                         <div className="space-y-3">
+                            <div className="flex items-center justify-between rounded-xl bg-neutral-50 p-3 border border-neutral-200">
+                                <div className="text-sm text-caption">เลือกไว้: <span className="font-semibold">{selectedIds.length}</span>/10</div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={openCompare} className="btn-primary btn-sm" disabled={selectedIds.length < 2}>เปรียบเทียบ</button>
+                                    {selectedIds.length > 0 && (
+                                        <button onClick={() => setSelectedIds([])} className="btn-outline btn-sm">ล้างการเลือก</button>
+                                    )}
+                                </div>
+                            </div>
                             {submissions.map(sub => (
                                 <div key={sub.id} className="surface-secondary p-4 rounded-xl flex items-center gap-4">
                                     <img
                                         src={sub.fish_image_urls?.[0] || 'https://placehold.co/150x150/E2E8F0/A0AEC0?text=No+Image'}
-                                        alt={sub.fish_name}
+                                        alt={sub.fish_name || 'Betta Fish'}
                                         className="w-16 h-16 object-cover rounded-lg border-2 border-white shadow-sm"
                                     />
                                     <div className="flex-1">
-                                        <p className="font-semibold text-body">{sub.fish_name}</p>
-                                        <p className="text-sm text-caption">โดย: {sub.owner.first_name}</p>
+                                        <p className="font-semibold text-body">{sub.fish_name || 'ไม่มีชื่อ'}</p>
+                                        <p className="text-sm text-caption">โดย: {sub.owner?.first_name || 'ไม่พบข้อมูลเจ้าของ'}</p>
                                     </div>
-                                    <button onClick={() => onScore(sub)} className="btn-primary btn-sm">ให้คะแนน</button>
+                                    <div className="flex items-center gap-3">
+                                        <label className="flex items-center gap-2 text-sm text-caption">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.includes(sub.id)}
+                                                onChange={() => toggleSelect(sub.id)}
+                                                disabled={!selectedIds.includes(sub.id) && selectedIds.length >= 10}
+                                            />
+                                            เปรียบเทียบ
+                                        </label>
+                                        <button onClick={() => onScore(sub)} className="btn-primary btn-sm">ให้คะแนน</button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -131,6 +221,47 @@ const MyContestCard = ({ contest, onToggle, isExpanded, onScore }) => {
                     )}
                 </div>
             )}
+            {/* Compare Modal */}
+            <Modal
+              isOpen={compareOpen}
+              onRequestClose={closeCompare}
+              style={{ overlay: { zIndex: 1050, backgroundColor: 'rgba(0, 0, 0, 0.6)' } }}
+              className="fixed inset-0 flex items-center justify-center p-4"
+              contentLabel="Compare Submissions"
+            >
+              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-2xl font-bold">เปรียบเทียบปลากัด ({selectedIds.length} ตัว)</h3>
+                  <button onClick={closeCompare} className="btn-outline btn-sm"><X size={16} className="mr-1"/>ปิด</button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {submissions.filter(s => selectedIds.includes(s.id)).map(s => (
+                    <div key={s.id} className="border rounded-xl p-3">
+                      <img src={s.fish_image_urls?.[0] || 'https://placehold.co/300x200'} alt={s.fish_name || 'Betta Fish'} className="w-full h-32 object-cover rounded-lg mb-2" />
+                      <div className="font-semibold truncate">{s.fish_name || 'ไม่มีชื่อ'}</div>
+                      <div className="text-sm text-caption mb-2">โดย: {s.owner?.first_name || 'ไม่พบข้อมูลเจ้าของ'}</div>
+                      <div className="text-sm text-caption mb-1">ประเภท: {s.fish_type || '-'}</div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        className="w-full border rounded-md p-2 text-center"
+                        placeholder="คะแนนรวม (0-100)"
+                        value={quickScores[s.id] ?? ''}
+                        onChange={(e) => handleQuickScoreChange(s.id, e.target.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 flex items-center justify-between">
+                  <div className="text-sm text-muted">ให้คะแนนแบบรวดเร็ว (Quick Score) จะบันทึกเฉพาะคะแนนรวม</div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setSelectedIds([])} className="btn-outline">ล้างการเลือก</button>
+                    <button onClick={submitQuickScores} className="btn-primary">บันทึกคะแนนที่กรอก</button>
+                  </div>
+                </div>
+              </div>
+            </Modal>
         </div>
     );
 };
@@ -178,11 +309,12 @@ const CompetitionJudging = () => {
             await submitCompetitionScore(submissionId, scoresData);
             toast.success("บันทึกคะแนนสำเร็จ!");
             setScoringSubmission(null);
-            if (expandedContestId) {
-                const currentId = expandedContestId;
-                setExpandedContestId(null);
-                setTimeout(() => setExpandedContestId(currentId), 100);
-            }
+            // Refresh the submissions list after scoring
+            // This is a simple way to force a re-fetch in the MyContestCard
+            const currentExpandedId = expandedContestId;
+            setExpandedContestId(null);
+            setTimeout(() => setExpandedContestId(currentExpandedId), 50);
+
         } catch (err) {
             toast.error(err.message || "บันทึกคะแนนไม่สำเร็จ");
         }
@@ -198,10 +330,10 @@ const CompetitionJudging = () => {
 
             <div className="flex border-b border-neutral-200">
                 <button onClick={() => setActiveTab('invitations')} className={`px-6 py-3 font-semibold transition-all duration-200 ${activeTab === 'invitations' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500 hover:text-purple-600'}`}>
-                    คำเชิญ ({judgingData.invitations.length})
+                    คำเชิญ ({judgingData.invitations?.length || 0})
                 </button>
                 <button onClick={() => setActiveTab('myContests')} className={`px-6 py-3 font-semibold transition-all duration-200 ${activeTab === 'myContests' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-500 hover:text-purple-600'}`}>
-                    การประกวดของฉัน ({judgingData.myContests.length})
+                    การประกวดของฉัน ({judgingData.myContests?.length || 0})
                 </button>
             </div>
 
@@ -210,7 +342,7 @@ const CompetitionJudging = () => {
             ) : (
                 <div>
                     {activeTab === 'invitations' ? (
-                        judgingData.invitations.length > 0 ? (
+                        judgingData.invitations?.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {judgingData.invitations.map(inv => (
                                     <InvitationCard key={inv.id} inv={inv} onResponse={handleInvitationResponse} />
@@ -220,7 +352,7 @@ const CompetitionJudging = () => {
                             <div className="text-center py-16 empty-state"><Frown className="mx-auto mb-4" size={48} /> ไม่มีคำเชิญใหม่</div>
                         )
                     ) : (
-                        judgingData.myContests.length > 0 ? (
+                        judgingData.myContests?.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {judgingData.myContests.map(contest => (
                                     <MyContestCard

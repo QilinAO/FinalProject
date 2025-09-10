@@ -1,7 +1,9 @@
 // D:\ProJectFinal\Lasts\my-project\src\services\api.js
 import { getAccessToken, signoutUser } from './authService';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/+$/, '');
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api')
+).replace(/\/+$/, '');
 const DEV_USER_ID = import.meta.env.VITE_DEV_USER_ID || '';
 
 export class ApiHttpError extends Error {

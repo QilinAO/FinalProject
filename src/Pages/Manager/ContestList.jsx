@@ -380,7 +380,7 @@ const ContestList = () => {
               <h2 className="text-xl font-bold mt-4 text-gray-800">ยืนยันการลบ</h2>
               <p className="text-gray-600 mt-2">
                 คุณแน่ใจหรือไม่ว่าต้องการลบ <br />
-                <span className="font-semibold">"{itemToDelete?.name}"</span>?
+                <span className="font-semibold">&quot;{itemToDelete?.name}&quot;</span>?
                 <br />
                 การกระทำนี้ไม่สามารถย้อนกลับได้
               </p>

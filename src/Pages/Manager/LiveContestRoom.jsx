@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import { Check, X, Eye, LoaderCircle, XCircle, PlayCircle, Lock, Trophy, AlertTriangle, ArrowLeft, Users, CheckSquare, Clock, Calendar, Sparkles, Info, Fish } from 'lucide-react';
 
 import ManagerMenu from '../../Component/ManagerMenu';
-import { getMyContests, getContestSubmissions, updateSubmissionStatus, updateMyContest, finalizeContest } from '../../services/managerService';
+import { getMyContests, getContestSubmissions, updateSubmissionStatus, updateMyContest, finalizeContest, getScoringProgress } from '../../services/managerService';
 import { getBettaTypeLabel, BETTA_TYPE_MAP_ID, BETTA_TYPE_MAP_SLUG } from '../../utils/bettaTypes';
 
 // อ่านค่า API_BASE จากบริการ axios ที่ตั้งไว้ หรือ fallback จาก Vite env
@@ -96,6 +96,7 @@ const LiveContestRoom = () => {
   const [aiDetailModalOpen, setAiDetailModalOpen] = useState(false);
   const [aiDetail, setAiDetail] = useState(null);
   const [aiFilter, setAiFilter] = useState('all'); // all | match | mismatch | uncertain
+  const [scoringProgress, setScoringProgress] = useState({ judges_total: 0, submissions: [] });
 
   useEffect(() => {
     Modal.setAppElement('#root');
@@ -139,10 +140,21 @@ const LiveContestRoom = () => {
     }
   };
 
+  const fetchScoringProgress = async (contestId) => {
+    try {
+      const progress = await getScoringProgress(contestId);
+      setScoringProgress(progress || { judges_total: 0, submissions: [] });
+    } catch (e) {
+      // ไม่ต้องรบกวนผู้ใช้ หากโหลดไม่ได้
+      console.debug('Load scoring progress failed');
+    }
+  };
+
   const handleSelectContest = (contest) => {
     setSelectedContest(contest);
     setAiScan({});
     fetchSubmissions(contest.id);
+    fetchScoringProgress(contest.id);
   };
 
   const handleBackToList = () => {
@@ -179,6 +191,7 @@ const LiveContestRoom = () => {
       toast.success(`อัปเดตสถานะ ${selectedSubmissions.length} รายการสำเร็จ!`);
       setSelectedSubmissions([]);
       await fetchSubmissions(selectedContest.id);
+      await fetchScoringProgress(selectedContest.id);
       if (newStatus === 'approved') setFilterStatus('approved');
       else if (newStatus === 'rejected') setFilterStatus('rejected');
     } catch (error) {
@@ -379,6 +392,17 @@ const LiveContestRoom = () => {
       rejected: submissions.filter(s => s.status === 'rejected').length,
     }), [submissions]);
 
+    // ความคืบหน้าการให้คะแนน (รวม)
+    const scoringStats = useMemo(() => {
+      const totalJudges = scoringProgress.judges_total || 0;
+      const subs = scoringProgress.submissions || [];
+      const completed = subs.filter(r => totalJudges > 0 && r.evaluated_count >= totalJudges).length;
+      const coverage = subs.length > 0
+        ? Math.round((subs.reduce((sum, r) => sum + (totalJudges > 0 ? (r.evaluated_count / totalJudges) : 0), 0) / subs.length) * 100)
+        : 0;
+      return { totalJudges, completed, coverage, totalSubs: subs.length };
+    }, [scoringProgress]);
+
     const filteredSubmissions = useMemo(() => {
       let list = submissions;
       if (filterStatus !== 'all') list = list.filter(s => s.status === filterStatus);
@@ -432,6 +456,17 @@ const LiveContestRoom = () => {
           </div>
         </div>
 
+        {/* ความคืบหน้าการให้คะแนนของกรรมการ */}
+        {selectedContest.status === 'ตัดสิน' && (
+          <div className="mb-6 p-4 surface-secondary rounded-lg flex flex-wrap items-center gap-3">
+            <span className="text-sm font-semibold text-secondary-800">ความคืบหน้าการให้คะแนน</span>
+            <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-700">กรรมการตอบรับ: {scoringStats.totalJudges} ท่าน</span>
+            <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-700">ให้ครบแล้ว: {scoringStats.completed}/{scoringStats.totalSubs} รายการ</span>
+            <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">ความครอบคลุมเฉลี่ย: {scoringStats.coverage}%</span>
+            <button className="ml-auto btn-outline btn-sm" onClick={() => fetchScoringProgress(selectedContest.id)}>รีเฟรช</button>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <StatCard icon={<Users/>} label="ผู้สมัครทั้งหมด (นับคน)" value={stats.totalOwners} onClick={() => setFilterStatus('all')} isActive={filterStatus === 'all'} />
           <StatCard icon={<Fish/>} label="ปลากัดทั้งหมด (ตัว)" value={stats.totalFish} onClick={() => setFilterStatus('all')} isActive={false} />
@@ -477,6 +512,7 @@ const LiveContestRoom = () => {
                   <th className="p-2 text-left">เจ้าของ</th>
                   <th className="p-2 text-left">สถานะ</th>
                   <th className="p-2 text-left">สถานะ AI</th>
+                  <th className="p-2 text-left">คะแนนกรรมการ</th>
                   <th className="p-2 text-center">จัดการ</th>
                 </tr>
               </thead>
@@ -496,6 +532,20 @@ const LiveContestRoom = () => {
                           </button>
                         )}
                       </div>
+                    </td>
+                    <td className="p-2">
+                      {(() => {
+                        const row = (scoringProgress.submissions || []).find(r => r.submission_id === sub.id);
+                        if (!row) return <span className="text-xs text-gray-500">-</span>;
+                        const total = scoringProgress.judges_total || 0;
+                        const done = row.evaluated_count || 0;
+                        return (
+                          <div className="text-xs text-gray-700">
+                            <span className="inline-block px-2 py-0.5 rounded bg-gray-100 mr-2">{done}/{total} ท่าน</span>
+                            {row.average_score != null && <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800">เฉลี่ย {row.average_score}</span>}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-2 text-center">
                       <div className="flex items-center justify-center gap-2">
@@ -536,6 +586,16 @@ const LiveContestRoom = () => {
       </div>
     );
   };
+
+  // Poll ความคืบหน้าทุก 15 วิ. ระหว่างสถานะ "ตัดสิน"
+  useEffect(() => {
+    if (!selectedContest || selectedContest.status !== 'ตัดสิน') return;
+    const id = selectedContest.id;
+    const timer = setInterval(() => {
+      fetchScoringProgress(id);
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [selectedContest]);
 
   return (
     <div className="bg-gray-100 min-h-screen">
@@ -645,7 +705,7 @@ const LiveContestRoom = () => {
         <div className="bg-white rounded-lg p-6 max-w-md w-full mx-auto text-center">
           <AlertTriangle className="mx-auto h-16 w-16 text-yellow-500" />
           <h2 className="text-xl font-bold mt-4">ยืนยันการประกาศผล</h2>
-          <p className="text-gray-600 mt-2">คุณแน่ใจหรือไม่ว่าต้องการประกาศผลการประกวด "{selectedContest?.name}"? การกระทำนี้ไม่สามารถย้อนกลับได้</p>
+          <p className="text-gray-600 mt-2">คุณแน่ใจหรือไม่ว่าต้องการประกาศผลการประกวด &quot;{selectedContest?.name}&quot;? การกระทำนี้ไม่สามารถย้อนกลับได้</p>
           <div className="mt-6 flex justify-center gap-4">
             <button onClick={() => setFinalizeModalOpen(false)} className="px-6 py-2 bg-gray-200 rounded-lg">ยกเลิก</button>
             <button onClick={confirmFinalize} className="px-6 py-2 bg-green-600 text-white rounded-lg">ยืนยัน</button>

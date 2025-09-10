@@ -250,7 +250,7 @@ const ManageUser = () => {
           <h2 className="text-xl font-bold mt-4 text-gray-800">ยืนยันการลบผู้ใช้</h2>
           <p className="text-gray-600 mt-2">
             คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้ <br />
-            <span className="font-semibold">"{userToDelete?.username}"</span>?
+            <span className="font-semibold">&quot;{userToDelete?.username}&quot;</span>?
             <br />
             การกระทำนี้ไม่สามารถย้อนกลับได้
           </p>

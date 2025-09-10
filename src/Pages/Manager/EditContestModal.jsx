@@ -215,7 +215,7 @@ const EditContestModal = ({ isOpen, onRequestClose, contestData }) => {
               )}
             </div>
             <p className="mt-4 text-center text-xs text-gray-500">
-              การเพิ่มหรือลบกรรมการ กรุณาไปที่หน้า "มอบหมายกรรมการ"
+              การเพิ่มหรือลบกรรมการ กรุณาไปที่หน้า &quot;มอบหมายกรรมการ&quot;
             </p>
           </div>
 

@@ -217,7 +217,7 @@ const AllNewsPage = () => {
                 <div className="flex justify-between items-center mb-8">
                   <div className="text-body">
                     <span className="font-medium text-primary-600">{filteredNews.length}</span> รายการ
-                    {searchTerm && <span className="ml-2 text-muted">สำหรับ "{searchTerm}"</span>}
+                    {searchTerm && <span className="ml-2 text-muted">สำหรับ &quot;{searchTerm}&quot;</span>}
                   </div>
                   <div className="text-sm text-muted">
                     หน้า {currentPage} จาก {totalPages}

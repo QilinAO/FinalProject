@@ -63,9 +63,14 @@ const ScoreInputs = ({ criteria, scores, onChange }) => (
   <div className="space-y-3">
     {criteria.map(item => (
       <div key={item.key} className="grid grid-cols-3 items-center gap-4">
-        <label className="font-semibold text-gray-700 col-span-2">
-          {item.label} (สูงสุด {item.max})
-        </label>
+        <div className="col-span-2">
+          <label className="font-semibold text-gray-700">
+            {item.label} (สูงสุด {item.max})
+          </label>
+          {item.desc && (
+            <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.desc}</p>
+          )}
+        </div>
         <input
           type="number"
           min="0"
