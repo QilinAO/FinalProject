@@ -30,15 +30,18 @@
 
 // ----------------------------- Imports --------------------------------
 import React, { lazy } from "react";
+import lazyWithRetry from "../utils/lazyWithRetry";
 
 // ------------------------- Lazy Components ----------------------------
 // หมายเหตุ: ไฟล์ปลายทางเหล่านี้ควรมี default export เป็น React component
-const ExpertDashboard      = lazy(() => import("../Pages/Expert/ExpertDashboard"));
-const EvaluationQueue      = lazy(() => import("../Pages/Expert/EvaluationQueue"));
-const CompetitionJudging   = lazy(() => import("../Pages/Expert/CompetitionJudging"));
-const ExpertHistory        = lazy(() => import("../Pages/Expert/EvaluationHistory"));
-const ExpertProfile        = lazy(() => import("../Pages/Expert/ExpertProfile"));
-const SpecialitiesManagement = lazy(() => import("../Pages/Expert/SpecialitiesManagement"));
+const ExpertDashboard      = lazy(() => import("../Pages/Expert/ExpertDashboard.jsx"));
+const EvaluationQueue      = lazy(() => import("../Pages/Expert/EvaluationQueue.jsx"));
+// Add retry for judging pages to mitigate transient dynamic import fetch issues
+const CompetitionJudging   = lazyWithRetry(() => import("../Pages/Expert/CompetitionJudging.jsx"), 1);
+const ExpertJudgingContest = lazyWithRetry(() => import("../Pages/Expert/ExpertJudgingContest.jsx"), 1);
+const ExpertHistory        = lazy(() => import("../Pages/Expert/EvaluationHistory.jsx"));
+const ExpertProfile        = lazy(() => import("../Pages/Expert/ExpertProfile.jsx"));
+const SpecialitiesManagement = lazy(() => import("../Pages/Expert/SpecialitiesManagement.jsx"));
 
 // ------------------------ Route Definitions ---------------------------
 const ExpertRoutes = [
@@ -53,6 +56,10 @@ const ExpertRoutes = [
   {
     path: "judging",
     element: <CompetitionJudging />,
+  },
+  {
+    path: "judging/:contestId",
+    element: <ExpertJudgingContest />,
   },
   {
     path: "history",

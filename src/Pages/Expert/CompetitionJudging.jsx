@@ -2,9 +2,10 @@
 
 // --- ส่วนที่ 1: การนำเข้า (Imports) ---
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getJudgingContests, respondToJudgeInvitation, getFishInContest, submitCompetitionScore } from '../../services/expertService';
 import { toast } from 'react-toastify';
-import Modal from 'react-modal';
+import Modal from '../../ui/Modal';
 import { LoaderCircle, Trophy, Check, X, Frown, ChevronDown, ChevronUp, Calendar, Users, Image as ImageIcon } from 'lucide-react';
 import ScoringFormModal from '../../Component/ScoringFormModal';
 
@@ -222,18 +223,8 @@ const MyContestCard = ({ contest, onToggle, isExpanded, onScore }) => {
                 </div>
             )}
             {/* Compare Modal */}
-            <Modal
-              isOpen={compareOpen}
-              onRequestClose={closeCompare}
-              style={{ overlay: { zIndex: 1050, backgroundColor: 'rgba(0, 0, 0, 0.6)' } }}
-              className="fixed inset-0 flex items-center justify-center p-4"
-              contentLabel="Compare Submissions"
-            >
-              <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-2xl font-bold">เปรียบเทียบปลากัด ({selectedIds.length} ตัว)</h3>
-                  <button onClick={closeCompare} className="btn-outline btn-sm"><X size={16} className="mr-1"/>ปิด</button>
-                </div>
+            <Modal isOpen={compareOpen} onRequestClose={closeCompare} title={`เปรียบเทียบปลากัด (${selectedIds.length} ตัว)`} maxWidth="max-w-6xl">
+              <div className="max-h-[70vh] overflow-y-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {submissions.filter(s => selectedIds.includes(s.id)).map(s => (
                     <div key={s.id} className="border rounded-xl p-3">
@@ -268,6 +259,7 @@ const MyContestCard = ({ contest, onToggle, isExpanded, onScore }) => {
 
 // --- ส่วนที่ 3: Main Component ---
 const CompetitionJudging = () => {
+    const navigate = useNavigate();
     // --- State Management ---
     const [judgingData, setJudgingData] = useState({ invitations: [], myContests: [] });
     const [loading, setLoading] = useState(true);
@@ -285,7 +277,6 @@ const CompetitionJudging = () => {
     }, []);
 
     useEffect(() => {
-        Modal.setAppElement('#root');
         fetchJudgingContests();
     }, [fetchJudgingContests]);
     
@@ -301,7 +292,7 @@ const CompetitionJudging = () => {
     };
     
     const toggleContestDetails = (contestId) => {
-        setExpandedContestId(prevId => (prevId === contestId ? null : contestId));
+        navigate(`/expert/judging/${contestId}`);
     };
 
     const handleSubmitScores = async (submissionId, scoresData) => {

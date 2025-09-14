@@ -4,10 +4,11 @@
 // ======================================================================
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Modal from 'react-modal';
+import Modal from '../ui/Modal';
 import { toast } from 'react-toastify';
 import { X, Send, LoaderCircle } from 'lucide-react';
 import { getScoringSchema } from '../services/expertService';
+import { getBettaTypeLabel } from '../utils/bettaTypes';
 
 /**
  * ส่วนหัวของ Modal
@@ -117,10 +118,12 @@ const ScoringFormModal = ({ isOpen, onRequestClose, submission, onSubmit }) => {
   const [scoreCriteria, setScoreCriteria] = useState([]);
   const [loadingSchema, setLoadingSchema] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [schemaType, setSchemaType] = useState('');
 
   useEffect(() => {
     if (isOpen && submission?.fish_type) {
       setLoadingSchema(true);
+      setSchemaType(submission.fish_type);
       getScoringSchema(submission.fish_type)
         .then(res => setScoreCriteria(res.data || []))
         .catch(() => {
@@ -143,6 +146,8 @@ const ScoringFormModal = ({ isOpen, onRequestClose, submission, onSubmit }) => {
     return scoreCriteria.reduce((sum, item) => sum + (scores[item.key] || 0), 0);
   }, [scoreCriteria, scores]);
 
+  // ไม่ใช้โมเดล AI ในการสลับแบบฟอร์มอีกต่อไปตามคำขอ
+
   const handleSubmit = async () => {
     for (const item of scoreCriteria) {
       if (scores[item.key] === undefined || scores[item.key] === null) {
@@ -164,15 +169,8 @@ const ScoringFormModal = ({ isOpen, onRequestClose, submission, onSubmit }) => {
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onRequestClose={onRequestClose}
-      style={{ overlay: { zIndex: 1050, backgroundColor: 'rgba(0, 0, 0, 0.75)' } }}
-      className="fixed inset-0 flex items-center justify-center p-4"
-      contentLabel="Scoring Form Modal"
-    >
-      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
-        <ModalHeader title={submission?.fish_name} onClose={onRequestClose} />
+    <Modal isOpen={isOpen} onRequestClose={onRequestClose} title={submission?.fish_name} maxWidth="max-w-2xl">
+      <div className="max-h-[75vh] overflow-y-auto">
         
         {loadingSchema ? (
           <div className="flex justify-center items-center h-64">
@@ -181,6 +179,10 @@ const ScoringFormModal = ({ isOpen, onRequestClose, submission, onSubmit }) => {
           </div>
         ) : (
           <>
+            <div className="mb-4 p-3 rounded-lg bg-neutral-50 border flex items-center gap-3">
+              <span className="text-sm text-neutral-700">แบบฟอร์มสำหรับประเภท: <span className="font-semibold">{getBettaTypeLabel(schemaType)}</span></span>
+            </div>
+
             <MediaViewer submission={submission} />
             <ScoreInputs criteria={scoreCriteria} scores={scores} onChange={handleScoreChange} />
             <ModalFooter totalScore={totalScore} onSubmit={handleSubmit} isSubmitting={isSubmitting} />

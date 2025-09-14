@@ -4,14 +4,14 @@
 // ======================================================================
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Modal from 'react-modal';
+import Modal from '../ui/Modal';
 import { useForm } from "react-hook-form";
 import { useDropzone } from "react-dropzone";
 import { toast } from "react-toastify";
 import { X, ImagePlus, Video, LoaderCircle } from 'lucide-react';
 import { submitBettaForCompetition } from "../services/userService";
 import modelService from "../services/modelService";
-import { BETTA_TYPE_MAP_ID } from '../utils/bettaTypes';
+import { BETTA_TYPE_MAP_ID, getBettaTypeLabel } from '../utils/bettaTypes';
 
 /**
  * ส่วนหัวของ Modal
@@ -174,16 +174,23 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
         const aiResult = await modelService.analyzeForCompetition({ betta_type: watchedBettaType }, [images[0]]);
         const predictedCode = aiResult?.final_label?.code || aiResult?.top1?.display_code || null;
         const predictedName = aiResult?.final_label?.name || aiResult?.top1?.display_name || null;
-        if (!cancelled && predictedCode) {
-          const predictedUpper = String(predictedCode).toUpperCase();
-          const allowed = (contest?.allowed_subcategories || []).map(c => String(c).toUpperCase());
-          const match = allowed.includes(predictedUpper);
-          setAiNote({ status: match ? 'match' : 'mismatch', code: predictedUpper, name: predictedName });
-          try {
-            const nameForShow = predictedName || predictedUpper;
-            if (match) toast.success(`AI ตรวจพบประเภท: ${nameForShow} — ตรงตามเงื่อนไข`);
-            else toast.warning(`AI ตรวจพบประเภท: ${nameForShow} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้`);
-          } catch {}
+        const isConfident = !!(aiResult?.is_confident);
+        if (!cancelled) {
+          if (!predictedCode || !isConfident) {
+            setAiNote({ status: 'uncertain' });
+            try { toast.info('AI ไม่มั่นใจว่าเป็นประเภทไหน ผู้ใช้โปรดเลือกประเภทเอง หรือสามารถส่งเข้าร่วมการประกวดได้'); } catch {}
+          } else {
+            const predictedUpper = String(predictedCode).toUpperCase();
+            const allowed = (contest?.allowed_subcategories || []).map(c => String(c).toUpperCase());
+            const match = allowed.includes(predictedUpper);
+            const displayName = getBettaTypeLabel(predictedName || predictedUpper);
+            setAiNote({ status: match ? 'match' : 'mismatch', code: predictedUpper, name: displayName });
+            try {
+              const nameForShow = displayName;
+              if (match) toast.success(`AI ตรวจพบประเภท: ${nameForShow} — ตรงตามเงื่อนไข`);
+              else toast.warning(`AI ตรวจพบประเภท: ${nameForShow} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้`);
+            } catch {}
+          }
         }
       } catch (e) {
         if (!cancelled) {
@@ -213,10 +220,13 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
           aiResult?.final_label?.name ||
           aiResult?.top1?.display_name ||
           aiResult?.data?.final_label?.name || null;
-        if (predictedCode) {
+        const isConfident = !!(aiResult?.is_confident);
+        if (!isConfident || !predictedCode) {
+          toast.info('AI ไม่มั่นใจว่าเป็นประเภทไหน ผู้ใช้โปรดเลือกประเภทเอง หรือสามารถส่งเข้าร่วมการประกวดได้');
+        } else {
           const predictedUpper = String(predictedCode).toUpperCase();
           const allowed = (contest?.allowed_subcategories || []).map(c => String(c).toUpperCase());
-          const nameForShow = predictedName || predictedUpper;
+          const nameForShow = getBettaTypeLabel(predictedName || predictedUpper);
           if (allowed.includes(predictedUpper)) {
             toast.success(`AI ตรวจพบประเภท: ${nameForShow} — ตรงตามเงื่อนไข`);
           } else {
@@ -273,17 +283,8 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onRequestClose={onRequestClose}
-      style={{ overlay: { zIndex: 1050, backgroundColor: 'rgba(0, 0, 0, 0.75)' } }}
-      className="fixed inset-0 flex items-center justify-center p-4"
-      contentLabel="Submission Form Modal"
-    >
-      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto relative">
-        <ModalHeader contestName={contest?.name} onClose={onRequestClose} />
-        
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <Modal isOpen={isOpen} onRequestClose={onRequestClose} title={contest?.name ? `สมัครเข้าร่วม: ${contest.name}` : 'สมัครเข้าร่วมประกวด'} maxWidth="max-w-3xl">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[75vh] overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block font-semibold text-gray-700 mb-1">ชื่อปลากัด:</label>
@@ -311,8 +312,8 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
             {aiNote && (
               <div className={`mt-2 text-sm ${aiNote.status === 'match' ? 'text-green-600' : aiNote.status === 'mismatch' ? 'text-amber-600' : 'text-gray-500'}`}>
                 {aiChecking ? 'AI กำลังตรวจสอบภาพ...' : (
-                  aiNote.status === 'match' ? `AI ตรวจพบประเภท: ${aiNote.code} — ตรงตามเงื่อนไข` :
-                  aiNote.status === 'mismatch' ? `AI ตรวจพบประเภท: ${aiNote.code} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้` :
+                  aiNote.status === 'match' ? `AI ตรวจพบประเภท: ${getBettaTypeLabel(aiNote.name || aiNote.code)} — ตรงตามเงื่อนไข` :
+                  aiNote.status === 'mismatch' ? `AI ตรวจพบประเภท: ${getBettaTypeLabel(aiNote.name || aiNote.code)} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้` :
                   'ไม่สามารถใช้ AI ตรวจสอบได้ในขณะนี้'
                 )}
               </div>
@@ -329,7 +330,6 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
             {isSubmitting ? 'กำลังส่งข้อมูล...' : 'ยืนยันการสมัคร'}
           </button>
         </form>
-      </div>
     </Modal>
   );
 };

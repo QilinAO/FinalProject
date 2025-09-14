@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { getMyCompetitionHistory } from "../../services/userService";
 import { toast } from "react-toastify";
 import { Frown } from "lucide-react";
+import PageHeader from "../../ui/PageHeader";
+import { Table, THead, TH, TD, TRow } from "../../ui/Table";
+import EmptyState from "../../ui/EmptyState";
 
 const CompetitionHistory = () => {
   const [competitions, setCompetitions] = useState([]);
@@ -58,44 +61,39 @@ const CompetitionHistory = () => {
 
   return (
     <div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white bg-opacity-90 rounded-lg shadow-md">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase">ชื่อการประกวด</th>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase">ชื่อปลากัด</th>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase">วันที่ส่ง</th>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase">สถานะการประกวด</th>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase">คะแนนสุดท้าย</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+      <PageHeader title="ประวัติการเข้าร่วมการแข่งขัน" />
+      <div className="bg-white rounded-lg shadow">
+        <Table>
+          <THead>
+            <TRow>
+              <TH>ชื่อการประกวด</TH>
+              <TH>ชื่อปลากัด</TH>
+              <TH>วันที่ส่ง</TH>
+              <TH>สถานะการประกวด</TH>
+              <TH>คะแนนสุดท้าย</TH>
+            </TRow>
+          </THead>
+          <tbody>
             {competitions.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="text-center py-16 text-gray-500">
-                  <Frown className="mx-auto mb-2" size={48} />
-                  ยังไม่มีประวัติการเข้าร่วมการแข่งขัน
-                </td>
-              </tr>
+              <TRow>
+                <TD colSpan={5}>
+                  <EmptyState icon={<Frown size={48} className="mx-auto mb-2 text-gray-400"/>} title="ยังไม่มีประวัติการเข้าร่วมการแข่งขัน" subtitle="เมื่อคุณเข้าร่วมการแข่งขัน ผลจะปรากฏที่นี่" />
+                </TD>
+              </TRow>
             ) : (
               competitions.map((comp) => (
-                <tr key={comp.id} className="hover:bg-gray-50">
-                  <td className="py-4 px-6 font-medium text-gray-800">{comp.contest.name}</td>
-                  <td className="py-4 px-6 text-gray-700">{comp.fish_name}</td>
-                  <td className="py-4 px-6 text-sm text-gray-500">{new Date(comp.submitted_at).toLocaleDateString("th-TH")}</td>
-                  <td className="py-4 px-6">
-                    <StatusBadge status={comp.contest.status} />
-                  </td>
-                  <td className="py-4 px-6 font-bold text-lg text-purple-700">
-                    {comp.final_score || "-"}
-                  </td>
-                </tr>
+                <TRow key={comp.id}>
+                  <TD className="font-medium text-gray-800">{comp.contest.name}</TD>
+                  <TD className="text-gray-700">{comp.fish_name}</TD>
+                  <TD className="text-sm text-gray-500">{new Date(comp.submitted_at).toLocaleDateString("th-TH")}</TD>
+                  <TD><StatusBadge status={comp.contest.status} /></TD>
+                  <TD className="font-bold text-purple-700">{comp.final_score || '-'}</TD>
+                </TRow>
               ))
             )}
           </tbody>
-        </table>
+        </Table>
       </div>
-      {/* หมายเหตุ: Modal ยังไม่ได้ถูกนำมาใช้ในเวอร์ชันนี้ แต่โค้ดถูกเตรียมไว้แล้ว */}
     </div>
   );
 };

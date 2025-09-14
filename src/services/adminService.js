@@ -54,6 +54,20 @@ export const getDashboardStats = () => {
   return apiService.get('/admin/dashboard/stats');
 };
 
+/**
+ * อัปเดตผู้ใช้ (profiles): first_name, last_name, username, role
+ */
+export const updateUser = (userId, data) => {
+  return apiService.put(`/admin/users/${userId}`, data);
+};
+
+/**
+ * อัปเดตอีเมล/รหัสผ่าน (Admin Only)
+ */
+export const updateUserCredentials = (userId, data) => {
+  return apiService.put(`/admin/users/${userId}/credentials`, data);
+};
+
 
 // --- ส่วนที่ 3: หมายเหตุสำหรับอนาคต ---
 

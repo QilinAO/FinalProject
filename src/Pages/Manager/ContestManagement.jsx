@@ -34,6 +34,14 @@ const ContestManagement = () => {
     posterPreview: null,
   };
   const [formData, setFormData] = useState(initialFormState);
+  // คำนวณวันที่วันนี้ในรูปแบบ YYYY-MM-DD เพื่อใช้เป็น min ของวันที่
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }, []);
   const [experts, setExperts] = useState([]);
   const [loadingExperts, setLoadingExperts] = useState(true);
 
@@ -127,6 +135,15 @@ const ContestManagement = () => {
     if (formData.category === 'การประกวด' && (!formData.start_date || !formData.end_date)) {
       return toast.error("กรุณาเลือกวันที่สำหรับการประกวด");
     }
+    // ตรวจสอบวันเริ่มต้องไม่ย้อนหลัง และวันสิ้นสุดต้องไม่ก่อนวันเริ่ม
+    if (formData.category === 'การประกวด') {
+      if (formData.start_date < todayStr) {
+        return toast.error("วันที่เริ่มรับสมัครต้องไม่ย้อนหลังวันปัจจุบัน");
+      }
+      if (formData.end_date < formData.start_date) {
+        return toast.error("วันที่สิ้นสุดต้องไม่น้อยกว่าวันเริ่มรับสมัคร");
+      }
+    }
 
     setIsLoading(true);
     try {
@@ -205,11 +222,11 @@ const ContestManagement = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">6. วันที่เริ่มรับสมัคร:</label>
-                  <input type="date" name="start_date" value={formData.start_date} onChange={handleInputChange} className="w-full p-3 border rounded-md" required />
+                  <input type="date" name="start_date" value={formData.start_date} onChange={handleInputChange} min={todayStr} className="w-full p-3 border rounded-md" required />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">7. วันที่สิ้นสุดการประกวด:</label>
-                  <input type="date" name="end_date" value={formData.end_date} onChange={handleInputChange} className="w-full p-3 border rounded-md" required />
+                  <input type="date" name="end_date" value={formData.end_date} onChange={handleInputChange} min={formData.start_date || todayStr} className="w-full p-3 border rounded-md" required />
                 </div>
               </div>
 

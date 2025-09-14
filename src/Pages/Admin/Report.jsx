@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { toast } from 'react-toastify';
-import { LoaderCircle, Download, Users, Shield, UserCheck, UserCog, FileText, Clock, CheckSquare, CircleDot } from 'lucide-react';
+import { LoaderCircle, Users, Shield, UserCheck, UserCog, FileText, Clock, CheckSquare, CircleDot } from 'lucide-react';
+import PageHeader from "../../ui/PageHeader";
 
 // [แก้ไข] 1. Import service ที่ถูกต้อง
 import { getAllUsers } from "../../services/adminService"; // ใช้ service สำหรับ Admin
@@ -73,12 +74,7 @@ const Report = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-800">รายงานสรุปผลระบบ</h1>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 w-full md:w-auto">
-          <Download size={18} /> ดาวน์โหลดรายงาน PDF
-        </button>
-      </div>
+      <PageHeader title="รายงานสรุปผลระบบ" />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* User Reports */}

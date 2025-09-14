@@ -41,7 +41,6 @@ const ExpertMenu = () => {
         <NavLink to="/expert/evaluations" icon={ClipboardCheck} label="ประเมินคุณภาพ" currentPath={location.pathname} />
         <NavLink to="/expert/judging" icon={Trophy} label="การแข่งขัน" currentPath={location.pathname}/>
         <NavLink to="/expert/history" icon={History} label="ประวัติทั้งหมด" currentPath={location.pathname}/>
-        <NavLink to="/expert/specialities" icon={Settings} label="จัดการความเชี่ยวชาญ" currentPath={location.pathname}/>
       </nav>
       
       <div className="p-2 border-t border-teal-600">

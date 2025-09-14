@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getEvaluationQueue, respondToEvaluation, submitQualityScores } from '../../services/expertService';
 import { toast } from 'react-toastify';
-import Modal from 'react-modal';
+import Modal from '../../ui/Modal';
 import { LoaderCircle, Frown, ClipboardCheck } from 'lucide-react';
 import ScoringFormModal from '../../Component/ScoringFormModal';
 
@@ -24,32 +24,49 @@ const QueueTabs = ({ activeTab, setActiveTab, counts }) => (
 );
 
 const QueueItem = ({ item, onAccept, onReject, onScore }) => (
-  <div className="bg-white p-4 rounded-lg shadow flex flex-col sm:flex-row items-center gap-4 hover:shadow-md transition-shadow">
-    <img 
-      src={item.fish_image_urls?.[0] || 'https://placehold.co/150x150/E2E8F0/A0AEC0?text=No+Image'} 
-      alt={item.fish_name} 
-      className="w-24 h-24 object-cover rounded-md flex-shrink-0 border"
-    />
-    <div className="flex-grow text-center sm:text-left">
-      <h3 className="font-bold text-lg text-gray-800">{item.fish_name}</h3>
-      <p className="text-sm text-gray-600">ประเภท: {item.fish_type}</p>
-      <p className="text-sm text-gray-500">โดย: {item.owner_name}</p>
+  <div className="group bg-white rounded-2xl overflow-hidden shadow-soft hover:shadow-large transition-all duration-300 hover:-translate-y-1 border border-neutral-200/50 flex flex-col">
+    {/* รูปด้านบน */}
+    <div className="relative h-40 overflow-hidden bg-neutral-100">
+      <img
+        src={item.fish_image_urls?.[0] || 'https://placehold.co/600x400/E2E8F0/A0AEC0?text=No+Image'}
+        alt={item.fish_name}
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"/>
+      <div className="absolute top-3 left-3 inline-flex items-center px-2 py-1 text-xs rounded-full bg-white/90 backdrop-blur-sm text-neutral-700">
+        {item.status === 'pending' ? 'รอการตอบรับ' : 'ต้องให้คะแนน'}
+      </div>
     </div>
-    <div className="flex gap-2 w-full sm:w-auto flex-shrink-0">
-      {item.status === 'pending' ? (
-        <>
-          <button onClick={() => onAccept(item.assignment_id)} className="flex-1 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 font-semibold transition">ตอบรับ</button>
-          <button onClick={() => onReject(item)} className="flex-1 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 font-semibold transition">ปฏิเสธ</button>
-        </>
-      ) : (
-        <button onClick={() => onScore(item)} className="w-full bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 font-semibold transition">ให้คะแนน</button>
-      )}
+    {/* เนื้อหา */}
+    <div className="p-4 flex-1 flex flex-col">
+      <h3 className="font-bold text-lg text-heading line-clamp-1">{item.fish_name || 'ไม่มีชื่อ'}</h3>
+      {/* แถวแสดงรายละเอียดแบบ badge */}
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+          🏷️ ประเภท: {item.fish_type || 'ไม่ระบุ'}
+        </span>
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-neutral-50 text-neutral-700 border border-neutral-200">
+          👤 ผู้ส่ง: {item.owner_name || 'ไม่ทราบ'}
+        </span>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {item.status === 'pending' ? (
+          <>
+            <button onClick={() => onAccept(item.assignment_id)} className="px-3 py-2 text-sm rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition">ตอบรับ</button>
+            <button onClick={() => onReject(item)} className="px-3 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 transition">ปฏิเสธ</button>
+          </>
+        ) : (
+          <div className="col-span-2">
+            <button onClick={() => onScore(item)} className="w-full px-3 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 transition">ให้คะแนน</button>
+          </div>
+        )}
+      </div>
     </div>
   </div>
 );
 
 const QueueList = ({ items, onAccept, onReject, onScore }) => (
-  <div className="space-y-3">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     {items.map(item => (
       <QueueItem key={item.assignment_id} item={item} onAccept={onAccept} onReject={onReject} onScore={onScore} />
     ))}
@@ -67,19 +84,16 @@ const RejectReasonModal = ({ isOpen, onClose, onSubmit }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onRequestClose={onClose} style={{ overlay: { zIndex: 1050, backgroundColor: 'rgba(0,0,0,0.75)' } }} className="fixed inset-0 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl p-6 max-w-lg w-full">
-        <h2 className="text-2xl font-bold mb-4">เหตุผลที่ปฏิเสธ</h2>
-        <textarea 
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="เช่น รูปภาพไม่ชัดเจน, ข้อมูลไม่ครบถ้วน..." 
-          className="w-full h-32 p-3 border rounded-md focus:ring-2 focus:ring-blue-500" 
-        />
-        <div className="flex justify-end gap-3 mt-4">
-          <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">ยกเลิก</button>
-          <button onClick={handleSubmit} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">ยืนยันการปฏิเสธ</button>
-        </div>
+    <Modal isOpen={isOpen} onRequestClose={onClose} title="เหตุผลที่ปฏิเสธ" maxWidth="max-w-lg">
+      <textarea 
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="เช่น รูปภาพไม่ชัดเจน, ข้อมูลไม่ครบถ้วน..." 
+        className="w-full h-32 p-3 border rounded-md focus:ring-2 focus:ring-blue-500" 
+      />
+      <div className="flex justify-end gap-3 mt-4">
+        <button onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">ยกเลิก</button>
+        <button onClick={handleSubmit} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">ยืนยันการปฏิเสธ</button>
       </div>
     </Modal>
   );
@@ -118,7 +132,6 @@ const EvaluationQueue = () => {
   }, []);
 
   useEffect(() => {
-    Modal.setAppElement('#root');
     fetchQueue();
   }, [fetchQueue]);
 

@@ -1,12 +1,15 @@
 // src/Pages/Admin/DatabaseManagement.jsx
 import React, { useState, useEffect } from "react";
+import PageHeader from "../../ui/PageHeader";
 import axios from "axios";
+import apiService from "../../services/api";
 
 const DatabaseManagement = () => {
   const [folders, setFolders] = useState([
     { name: "Profile", count: 0 },
-    { name: "BettaFish/Image", count: 0 },
-    { name: "BettaFish/Video", count: 0 },
+    { name: "Poster", count: 0 },
+    { name: "BettaFish_Image", count: 0 },
+    { name: "BettaFish_Video", count: 0 },
   ]);
   const [files, setFiles] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState(null);
@@ -30,19 +33,18 @@ const DatabaseManagement = () => {
     setIsModalOpen(false);
   };
 
-  // ดึงข้อมูลไฟล์ทั้งหมดจาก API `/files/all-files`
+  // ดึงข้อมูลสรุปไฟล์จาก API ใหม่ `/api/admin/storage/summary`
   useEffect(() => {
     const fetchAllFiles = async () => {
       setLoading(true);
       try {
-        const response = await axios.get("/files/all-files");
-        const data = response.data;
-        console.log("Fetched data:", data);
-
+        const response = await apiService.get("/admin/storage/summary");
+        const summary = response?.data || response || {};
         setFolders([
-          { name: "Profile", count: data.Profile.total },
-          { name: "BettaFish/Image", count: data.BettaFishImage.total },
-          { name: "BettaFish/Video", count: data.BettaFishVideo.total },
+          { name: "Profile", count: summary.Profile || 0 },
+          { name: "Poster", count: summary.Poster || 0 },
+          { name: "BettaFish_Image", count: summary.BettaFish_Image || 0 },
+          { name: "BettaFish_Video", count: summary.BettaFish_Video || 0 },
         ]);
       } catch (error) {
         console.error("Error fetching all files:", error);
@@ -62,12 +64,9 @@ const DatabaseManagement = () => {
     setSelectedFiles([]);
 
     try {
-      const response = await axios.get(
-        `/files/${encodeURIComponent(folder)}/files`
-      );
-      const data = response.data;
-      console.log(`Selected Folder: ${folder}`, data);
-      setFiles(data.files || []);
+      const response = await apiService.get('/admin/storage/list', { query: { folder } });
+      const rows = response?.data || response || [];
+      setFiles(rows);
     } catch (error) {
       console.error("Error fetching files:", error);
     } finally {
@@ -92,9 +91,9 @@ const DatabaseManagement = () => {
     setLoading(true);
     try {
       await Promise.all(
-        selectedFiles.map((file) =>
-          axios.delete(`/files/${encodeURIComponent(selectedFolder)}/${file.name}`)
-        )
+        selectedFiles
+          .filter(f => !f.name.startsWith('.'))
+          .map((file) => apiService.delete('/admin/storage/file', { query: { folder: selectedFolder, name: file.name } }))
       );
       alert("ไฟล์ถูกลบเรียบร้อย");
       setSelectedFiles([]);
@@ -118,23 +117,22 @@ const DatabaseManagement = () => {
   // ฟังก์ชันสำหรับดาวน์โหลด ZIP
   const handleDownloadZip = async () => {
     if (!selectedFolder) return;
-
     try {
-      const response = await axios.get(
-        `/files/${encodeURIComponent(selectedFolder)}/download-zip`,
-        { responseType: "blob" }
-      );
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `${selectedFolder}.zip`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode.removeChild(link);
-    } catch (error) {
-      console.error("Error downloading ZIP:", error);
-      alert("เกิดข้อผิดพลาดในการดาวน์โหลด ZIP");
+      const names = (isMultiSelect ? selectedFiles : [])
+        .filter(f => !f.name.startsWith('.'))
+        .map(f => f.name);
+      const query = names.length > 0 ? { folder: selectedFolder, names } : { folder: selectedFolder };
+      const blob = await apiService.download('/admin/storage/zip', { query });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedFolder}${names.length>0?'_selected':''}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('ดาวน์โหลด ZIP ไม่สำเร็จ');
     }
   };
 
@@ -160,7 +158,7 @@ const DatabaseManagement = () => {
       {/* AdminMenu (Navbar) อยู่ใน App.jsx หรือ Layout กลางแล้ว */}
       {/* เว้นระยะด้านบนป้องกันการทับ Navbar */}
       <div className="pt-20 p-8 w-full">
-        <h1 className="text-3xl font-bold mb-6">จัดการฐานข้อมูล</h1>
+        <PageHeader title="จัดการฐานข้อมูล" />
 
         {loading && <p>กำลังโหลดข้อมูล...</p>}
 
@@ -223,11 +221,7 @@ const DatabaseManagement = () => {
               )}
 
               {/* ปุ่มดาวน์โหลด ZIP */}
-              <button
-                onClick={handleDownloadZip}
-                className="bg-green-500 text-white py-2 px-4 rounded"
-                disabled={!selectedFolder}
-              >
+              <button onClick={handleDownloadZip} className="bg-green-500 text-white py-2 px-4 rounded" disabled={!selectedFolder}>
                 ดาวน์โหลด ZIP
               </button>
             </div>

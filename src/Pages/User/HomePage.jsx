@@ -278,13 +278,17 @@ const HomePage = () => {
           {!loadingNews && !errorNews && (
             newsItems.length > 0 ? (
               <div className="grid-responsive grid-cols-responsive">
-                {newsItems.map((news) => (
-                  <article key={news.id} className="card-hover group overflow-hidden">
-                    <Link to={`/news/${news.id}`} className="block">
+                {newsItems.map((item) => {
+                  const isContest = item.category === 'การประกวด';
+                  const href = isContest ? `/contest/${item.id}` : `/news/${item.id}`;
+                  const badgeText = isContest ? 'ประกวด' : 'ข่าวสาร';
+                  return (
+                  <article key={item.id} className="card-hover group overflow-hidden">
+                    <Link to={href} className="block">
                       <div className="overflow-hidden aspect-[4/3] rounded-xl mb-4">
-                        <img 
-                          src={news.poster_url} 
-                          alt={news.name} 
+                        <img
+                          src={item.poster_url}
+                          alt={item.name}
                           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                         />
                       </div>
@@ -292,22 +296,25 @@ const HomePage = () => {
                         <div className="flex items-center gap-2">
                           <div className="badge-primary">
                             <Star className="h-3 w-3 mr-1" />
-                            ข่าวสาร
+                            {badgeText}
                           </div>
                           <time className="text-xs text-neutral-500">
-                            {new Date(news.created_at).toLocaleDateString('th-TH', {
+                            {new Date(item.created_at).toLocaleDateString('th-TH', {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric'
                             })}
                           </time>
+                          {isContest && (
+                            <span className="badge-secondary">กำลังดำเนินการ</span>
+                          )}
                         </div>
                         <h3 className="text-xl font-bold text-neutral-900 group-hover:text-primary-600 transition-colors duration-200 line-clamp-2">
-                          {news.name}
+                          {item.name}
                         </h3>
-                        {news.short_description && (
+                        {item.short_description && (
                           <p className="text-neutral-600 leading-relaxed line-clamp-3">
-                            {news.short_description}
+                            {item.short_description}
                           </p>
                         )}
                         <div className="flex items-center gap-2 text-primary-600 font-medium text-sm group-hover:gap-3 transition-all duration-200">
@@ -317,7 +324,7 @@ const HomePage = () => {
                       </div>
                     </Link>
                   </article>
-                ))}
+                );})}
               </div>
             ) : (
               <div className="text-center py-20">

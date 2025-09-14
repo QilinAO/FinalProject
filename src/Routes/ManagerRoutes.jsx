@@ -38,6 +38,7 @@ const ManagerProfile       = lazy(() => import("../Pages/Manager/ManagerProfile"
 const ContestManagement    = lazy(() => import("../Pages/Manager/ContestManagement"));
 const ContestList          = lazy(() => import("../Pages/Manager/ContestList"));
 const CompetitionResults   = lazy(() => import("../Pages/Manager/CompetitionResults"));
+const CompetitionResultsSummary = lazy(() => import("../Pages/Manager/CompetitionResultsSummary"));
 const ContestHistory       = lazy(() => import("../Pages/Manager/ContestHistory"));
 const AssignJudges         = lazy(() => import("../Pages/Manager/AssignJudges"));
 const LiveContestRoom      = lazy(() => import("../Pages/Manager/LiveContestRoom"));
@@ -66,6 +67,10 @@ const ManagerRoutes = [
   {
     path: "competition-results",
     element: <CompetitionResults />,
+  },
+  {
+    path: "competition-results/summary",
+    element: <CompetitionResultsSummary />,
   },
   {
     path: "contest-history",

@@ -119,12 +119,14 @@ class ApiService {
     const data = await parseBody(res, wantsBlob);
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      // 401: หมดอายุ/ไม่ได้รับอนุญาต -> ออกจากระบบและพาไปหน้าเข้าสู่ระบบ
+      if (res.status === 401) {
         try { this._onUnauthorized?.(); } catch {}
         try { await signoutUser?.(); } catch {}
         try { if (typeof window !== 'undefined') window.location.href = '/login'; } catch {}
         throw new ApiHttpError('เซสชันหมดอายุหรือไม่มีสิทธิ์เข้าถึง กรุณาเข้าสู่ระบบใหม่', res.status, data);
       }
+      // 403: ห้ามเข้าถึง (ไม่ต้องล็อกเอาท์อัตโนมัติ ให้ผู้ใช้เห็นข้อความเตือนในหน้าเดิม)
       const msg =
         (data && typeof data === 'object' && (data.error || data.message)) ||
         (typeof data === 'string' ? data : null) ||

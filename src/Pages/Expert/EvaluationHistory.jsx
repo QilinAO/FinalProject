@@ -3,70 +3,54 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getExpertHistory } from '../../services/expertService';
 import { toast } from 'react-toastify';
-import { LoaderCircle, History, Frown, ClipboardCheck, Trophy } from 'lucide-react';
+import { History, Frown, ClipboardCheck, Trophy } from 'lucide-react';
+import PageHeader from '../../ui/PageHeader';
+import { Table, THead, TH, TD, TRow } from '../../ui/Table';
+import EmptyState from '../../ui/EmptyState';
+import LoadingSpinner from '../../ui/LoadingSpinner';
 
 // Component ย่อยสำหรับแสดงตารางข้อมูล
 const HistoryTable = ({ data, type }) => {
     if (!data || data.length === 0) {
-        return (
-            <div className="text-center py-16 bg-gray-50 rounded-lg">
-                <Frown size={48} className="mx-auto text-gray-400 mb-2"/>
-                <p className="text-gray-500">ไม่พบประวัติในหมวดนี้</p>
-            </div>
-        );
+        return <EmptyState icon={<Frown size={48} className="mx-auto text-gray-400"/>} title="ไม่พบประวัติในหมวดนี้" subtitle="ลองเปลี่ยนหมวดหรือกลับมาภายหลัง"/>;
     }
 
     const isQuality = type === 'quality';
 
     return (
-        <div className="overflow-x-auto">
-            <table className="min-w-full bg-white">
-                <thead className="bg-gray-100">
-                    <tr>
-                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">
-                            {isQuality ? 'ชื่อปลา' : 'ชื่อการแข่งขัน'}
-                        </th>
-                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">ประเภท</th>
-                        {isQuality && (
-                            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">เจ้าของ</th>
-                        )}
-                        <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">วันที่เสร็จสิ้น</th>
-                        {isQuality && (
-                            <th className="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase">คะแนน</th>
-                        )}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                    {data.map(item => (
-                        <tr key={item.id} className="hover:bg-gray-50">
-                            <td className="py-4 px-4 font-medium text-gray-800">
-                                {isQuality ? item.fish_name : item.name}
-                            </td>
-                            <td className="py-4 px-4 text-gray-600">
-                                {isQuality ? item.fish_type : item.type}
-                            </td>
-                            {isQuality && (
-                                <td className="py-4 px-4 text-gray-600">
-                                    {item.owner_name}
-                                </td>
-                            )}
-                            <td className="py-4 px-4 text-gray-600">
-                                {new Date(isQuality ? item.evaluated_at : item.date).toLocaleDateString('th-TH')}
-                            </td>
-                            {isQuality && (
-                                <td className="py-4 px-4 font-bold text-teal-600">{item.total_score}</td>
-                            )}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+        <Table>
+          <THead>
+            <TRow>
+              <TH>{isQuality ? 'ชื่อปลา' : 'ชื่อการแข่งขัน'}</TH>
+              <TH>ประเภท</TH>
+              {isQuality && <TH>เจ้าของ</TH>}
+              <TH>วันที่เสร็จสิ้น</TH>
+              {isQuality && <TH>คะแนน</TH>}
+            </TRow>
+          </THead>
+          <tbody>
+            {data.map(item => (
+              <TRow key={item.id}>
+                <TD className="font-medium text-gray-800">{isQuality ? item.fish_name : item.name}</TD>
+                <TD className="text-gray-600">{isQuality ? item.fish_type : item.type}</TD>
+                {isQuality && <TD className="text-gray-600">{item.owner_name}</TD>}
+                <TD className="text-gray-600">{new Date(isQuality ? item.evaluated_at : item.date).toLocaleDateString('th-TH')}</TD>
+                {isQuality && <TD className="font-bold text-teal-600">{item.total_score}</TD>}
+              </TRow>
+            ))}
+          </tbody>
+        </Table>
     );
 };
 
 // Component หลักของหน้า
 const ExpertHistory = () => {
-    const [activeTab, setActiveTab] = useState('quality');
+    const [activeTab, setActiveTab] = useState(() => {
+        try {
+            const saved = localStorage.getItem('expert_history_tab');
+            return saved === 'quality' || saved === 'competition' ? saved : 'competition';
+        } catch { return 'competition'; }
+    });
     const [historyData, setHistoryData] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -84,6 +68,7 @@ const ExpertHistory = () => {
     // useEffect จะทำงานเมื่อ activeTab เปลี่ยนแปลง
     useEffect(() => {
         fetchHistory(activeTab);
+        try { localStorage.setItem('expert_history_tab', activeTab); } catch {}
     }, [activeTab, fetchHistory]);
 
     // Component ย่อยสำหรับปุ่ม Tab
@@ -103,24 +88,21 @@ const ExpertHistory = () => {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-                <History className="mr-3 text-teal-600" />
-                ประวัติการทำงาน
-            </h1>
+            <PageHeader title={<span className="flex items-center"><History className="mr-3 text-teal-600"/>ประวัติการทำงาน</span>} />
 
             {/* ส่วนของ Tab */}
             <div className="flex justify-center items-center gap-4 p-2 bg-gray-100 rounded-xl">
-                <TabButton type="quality" label="การประเมินคุณภาพ" icon={ClipboardCheck} />
                 <TabButton type="competition" label="การตัดสินการแข่งขัน" icon={Trophy} />
+                <TabButton type="quality" label="การประเมินคุณภาพ" icon={ClipboardCheck} />
             </div>
 
             {/* ส่วนแสดงผลตาราง */}
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                {loading ? (
-                    <div className="flex justify-center p-20"><LoaderCircle className="animate-spin text-teal-500" size={40} /></div>
-                ) : (
-                    <HistoryTable data={historyData} type={activeTab} />
-                )}
+              {loading ? (
+                <LoadingSpinner label="กำลังโหลดประวัติ..." />
+              ) : (
+                <HistoryTable data={historyData} type={activeTab} />
+              )}
             </div>
         </div>
     );

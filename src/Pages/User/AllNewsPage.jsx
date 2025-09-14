@@ -39,6 +39,8 @@ const AllNewsPage = () => {
   // State สำหรับการกรองและการแบ่งหน้า
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  // หมวดหมู่ที่เลือกสำหรับกรอง (ว่าง = แสดงทั้งหมด)
+  const [selectedCategories, setSelectedCategories] = useState([]);
 
   // เปลี่ยนจาก const เป็น state และคำนวณจากขนาดจอ
   const [itemsPerPage, setItemsPerPage] = useState(() =>
@@ -86,13 +88,27 @@ const AllNewsPage = () => {
     fetchNews();
   }, []); // ทำงานครั้งเดียวเมื่อ Component โหลด
 
+  // สร้างชุดหมวดหมู่จากข้อมูลที่โหลดได้
+  const categories = useMemo(() => {
+    const set = new Set(allNews.map(n => n.category).filter(Boolean));
+    return Array.from(set);
+  }, [allNews]);
+
   // ใช้ useMemo เพื่อกรองข้อมูลอย่างมีประสิทธิภาพ
   const filteredNews = useMemo(() => {
-    return allNews.filter((news) =>
-      (news.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (news.short_description || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [allNews, searchTerm]);
+    const term = searchTerm.toLowerCase();
+    return allNews
+      .filter(n => {
+        // กรองตามคำค้นหา
+        const t = (n.name || '').toLowerCase();
+        const d = (n.short_description || '').toLowerCase();
+        const okSearch = !term || t.includes(term) || d.includes(term);
+        if (!okSearch) return false;
+        // กรองตามหมวดหมู่ที่เลือก
+        if (selectedCategories.length === 0) return true;
+        return selectedCategories.includes(n.category);
+      });
+  }, [allNews, searchTerm, selectedCategories]);
 
   // ถ้า itemsPerPage หรือจำนวนข้อมูลเปลี่ยน ให้ clamp หน้าปัจจุบันให้อยู่ในช่วงที่ถูกต้อง
   useEffect(() => {
@@ -160,6 +176,31 @@ const AllNewsPage = () => {
             )}
           </div>
         </div>
+
+        {/* ส่วนกรองหมวดหมู่ */}
+        {categories.length > 0 && (
+          <div className="mb-8 flex flex-wrap items-center gap-2 justify-center">
+            <button
+              className={`px-4 py-2 rounded-full border text-sm ${selectedCategories.length===0 ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-neutral-700 border-neutral-300 hover:border-primary-400'}`}
+              onClick={() => { setSelectedCategories([]); setCurrentPage(1); }}
+            >ทั้งหมด</button>
+            {categories.map(cat => {
+              const active = selectedCategories.includes(cat);
+              return (
+                <button
+                  key={cat}
+                  className={`px-4 py-2 rounded-full border text-sm flex items-center gap-2 ${active ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-neutral-700 border-neutral-300 hover:border-primary-400'}`}
+                  onClick={() => {
+                    setSelectedCategories(prev => active ? prev.filter(c => c!==cat) : [...prev, cat]);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <FaTag size={10}/> {cat}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* แสดงสถานะ Loading, Error, หรือข้อมูล */}
         {loading ? (

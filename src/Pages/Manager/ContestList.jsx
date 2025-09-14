@@ -7,7 +7,7 @@ import {
   Frown, FileText, LoaderCircle, AlertTriangle, Calendar
 } from "lucide-react";
 import ManagerMenu from "../../Component/ManagerMenu";
-import Modal from "react-modal";
+import Modal from "../../ui/Modal";
 import EditContestModal from "./EditContestModal";
 import { toast } from "react-toastify";
 import { getMyContests, deleteMyContest } from "../../services/managerService";
@@ -40,7 +40,6 @@ const ContestList = () => {
   const [itemToDelete, setItemToDelete] = useState(null);
 
   useEffect(() => {
-    Modal.setAppElement("#root");
     fetchItems();
   }, []);
 
@@ -283,40 +282,25 @@ const ContestList = () => {
             </div>
           </div>
 
-          <Modal
-            isOpen={isDetailModalOpen}
-            onRequestClose={() => setIsDetailModalOpen(false)}
-            style={{ overlay: { zIndex: 1050 } }}
-            className="fixed inset-0 flex items-center justify-center p-4"
-            overlayClassName="fixed inset-0 bg-black bg-opacity-70"
-          >
+          <Modal isOpen={isDetailModalOpen} onRequestClose={() => setIsDetailModalOpen(false)} title={selectedItem?.name} maxWidth="max-w-2xl">
             {selectedItem && (
-              <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 overflow-y-auto max-h-[90vh] relative">
-                <button
-                  onClick={() => setIsDetailModalOpen(false)}
-                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-800"
-                >
-                  <XCircle />
-                </button>
-                <h2 className="text-2xl font-bold mb-4">{selectedItem.name}</h2>
-                <div className="space-y-2">
+              <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+                <p>
+                  <strong>ประเภท:</strong> {selectedItem.category}
+                </p>
+                {selectedItem.category === "การประกวด" && (
                   <p>
-                    <strong>ประเภท:</strong> {selectedItem.category}
+                    <strong>สถานะ:</strong> {selectedItem.status}
                   </p>
-                  {selectedItem.category === "การประกวด" && (
-                    <p>
-                      <strong>สถานะ:</strong> {selectedItem.status}
-                    </p>
-                  )}
-                  <p>
-                    <strong>วันที่เริ่ม:</strong> {formatReadableDate(selectedItem.start_date)}
-                  </p>
-                  <p>
-                    <strong>วันที่สิ้นสุด:</strong> {formatReadableDate(selectedItem.end_date)}
-                  </p>
-                  <p>
-                    <strong>คำอธิบายย่อ:</strong> {selectedItem.short_description}</p>
-                </div>
+                )}
+                <p>
+                  <strong>วันที่เริ่ม:</strong> {formatReadableDate(selectedItem.start_date)}
+                </p>
+                <p>
+                  <strong>วันที่สิ้นสุด:</strong> {formatReadableDate(selectedItem.end_date)}
+                </p>
+                <p>
+                  <strong>คำอธิบายย่อ:</strong> {selectedItem.short_description}</p>
                 {selectedItem.poster_url && (
                   <div className="my-4">
                     <img
@@ -348,14 +332,6 @@ const ContestList = () => {
                     </ul>
                   </div>
                 )}
-                <div className="mt-6 flex justify-end">
-                  <button
-                    onClick={() => setIsDetailModalOpen(false)}
-                    className="bg-gray-300 px-4 py-2 rounded-md hover:bg-gray-400"
-                  >
-                    ปิด
-                  </button>
-                </div>
               </div>
             )}
           </Modal>
@@ -368,16 +344,9 @@ const ContestList = () => {
             />
           )}
 
-          <Modal
-            isOpen={isDeleteModalOpen}
-            onRequestClose={() => setIsDeleteModalOpen(false)}
-            style={{ overlay: { zIndex: 1051, backgroundColor: "rgba(0, 0, 0, 0.75)" } }}
-            className="fixed inset-0 flex items-center justify-center p-4"
-            contentLabel="Delete Confirmation Modal"
-          >
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-auto text-center shadow-xl">
+          <Modal isOpen={isDeleteModalOpen} onRequestClose={() => setIsDeleteModalOpen(false)} title="ยืนยันการลบ" maxWidth="max-w-sm">
+            <div className="text-center">
               <AlertTriangle className="mx-auto h-16 w-16 text-red-500" />
-              <h2 className="text-xl font-bold mt-4 text-gray-800">ยืนยันการลบ</h2>
               <p className="text-gray-600 mt-2">
                 คุณแน่ใจหรือไม่ว่าต้องการลบ <br />
                 <span className="font-semibold">&quot;{itemToDelete?.name}&quot;</span>?
@@ -385,18 +354,8 @@ const ContestList = () => {
                 การกระทำนี้ไม่สามารถย้อนกลับได้
               </p>
               <div className="mt-6 flex justify-center gap-4">
-                <button
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={confirmDeleteItem}
-                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"
-                >
-                  ยืนยันการลบ
-                </button>
+                <button onClick={() => setIsDeleteModalOpen(false)} className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold">ยกเลิก</button>
+                <button onClick={confirmDeleteItem} className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">ยืนยันการลบ</button>
               </div>
             </div>
           </Modal>

@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { Loader, AlertCircle, Frown } from "lucide-react";
+import PageHeader from "../../ui/PageHeader";
+import { Table, THead, TH, TD, TRow } from "../../ui/Table";
+import EmptyState from "../../ui/EmptyState";
 import { getMyEvaluationHistory } from "../../services/userService"; 
 import DetailModal from "./DetailModal"; 
 
@@ -85,51 +88,40 @@ const QualityEvaluationHistory = () => {
 
   return (
     <div>
-      <div className="overflow-x-auto bg-white rounded-lg shadow">
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อปลากัด</th>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">วันที่ส่ง</th>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คะแนน</th>
-              <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+      <PageHeader title="ประวัติการประเมินคุณภาพ" />
+      <div className="bg-white rounded-lg shadow">
+        <Table>
+          <THead>
+            <TRow>
+              <TH>ชื่อปลากัด</TH>
+              <TH>วันที่ส่ง</TH>
+              <TH>สถานะ</TH>
+              <TH>คะแนน</TH>
+              <TH>รายละเอียด</TH>
+            </TRow>
+          </THead>
+          <tbody>
             {evaluations.length === 0 ? (
-              <tr>
-                <td colSpan="5" className="text-center py-10 text-gray-500">
-                  <Frown className="mx-auto mb-2" size={48} />
-                  ยังไม่มีประวัติการประเมินคุณภาพ
-                </td>
-              </tr>
+              <TRow>
+                <TD colSpan={5}>
+                  <EmptyState icon={<Frown size={48} className="mx-auto mb-2 text-gray-400"/>} title="ยังไม่มีประวัติการประเมินคุณภาพ" subtitle="เมื่อมีการประเมินแล้ว ข้อมูลจะแสดงที่นี่" />
+                </TD>
+              </TRow>
             ) : (
               evaluations.map((evalItem) => (
-                <tr key={evalItem.id} className="hover:bg-gray-50">
-                  <td className="py-4 px-6 text-sm font-medium text-gray-900">{evalItem.betta_name}</td>
-                  <td className="py-4 px-6 text-sm text-gray-500">{new Date(evalItem.evaluationDate).toLocaleDateString("th-TH")}</td>
-                  <td className="py-4 px-6"><StatusBadge status={evalItem.status} /></td>
-                  <td className="py-4 px-6 text-sm text-gray-900">
-                    {evalItem.assignees?.[0]?.total_score ? (
-                      <span className="font-bold text-green-600">{evalItem.assignees[0].total_score} คะแนน</span>
-                    ) : (
-                      <span className="text-gray-400">-</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-6">
-                    <button
-                      onClick={() => openModal(evalItem)}
-                      className="text-purple-600 hover:text-purple-900 font-medium text-sm"
-                    >
-                      ดูรายละเอียด
-                    </button>
-                  </td>
-                </tr>
+                <TRow key={evalItem.id}>
+                  <TD className="text-sm font-medium text-gray-900">{evalItem.betta_name}</TD>
+                  <TD className="text-sm text-gray-500">{new Date(evalItem.evaluationDate).toLocaleDateString("th-TH")}</TD>
+                  <TD><StatusBadge status={evalItem.status} /></TD>
+                  <TD className="text-sm text-gray-900">{evalItem.assignees?.[0]?.total_score ? (<span className="font-bold text-green-600">{evalItem.assignees[0].total_score} คะแนน</span>) : (<span className="text-gray-400">-</span>)}</TD>
+                  <TD>
+                    <button onClick={() => openModal(evalItem)} className="text-purple-600 hover:text-purple-900 font-medium text-sm">ดูรายละเอียด</button>
+                  </TD>
+                </TRow>
               ))
             )}
           </tbody>
-        </table>
+        </Table>
       </div>
 
       {selectedEvaluation && (
