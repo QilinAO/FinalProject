@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { Loader, AlertCircle, Frown } from "lucide-react";
 import PageHeader from "../../ui/PageHeader";
 import { Table, THead, TH, TD, TRow } from "../../ui/Table";
-import EmptyState from "../../ui/EmptyState";
 import { getMyEvaluationHistory } from "../../services/userService"; 
 import DetailModal from "./DetailModal"; 
 
@@ -49,6 +48,7 @@ const QualityEvaluationHistory = () => {
       'รอการตรวจสอบ': 'bg-gray-200 text-gray-800',
       'รอการมอบหมาย': 'bg-gray-200 text-gray-800',
       'รอผู้เชี่ยวชาญตอบรับ': 'bg-yellow-200 text-yellow-800',
+      'รอผู้เชี่ยวประเมิน': 'bg-yellow-200 text-yellow-800',
       'กำลังประเมิน': 'bg-blue-200 text-blue-800',
       'ประเมินเสร็จสิ้น': 'bg-green-200 text-green-800',
       'ถูกปฏิเสธ': 'bg-red-200 text-red-800',
@@ -89,26 +89,28 @@ const QualityEvaluationHistory = () => {
   return (
     <div>
       <PageHeader title="ประวัติการประเมินคุณภาพ" />
-      <div className="bg-white rounded-lg shadow">
-        <Table>
-          <THead>
-            <TRow>
-              <TH>ชื่อปลากัด</TH>
-              <TH>วันที่ส่ง</TH>
-              <TH>สถานะ</TH>
-              <TH>คะแนน</TH>
-              <TH>รายละเอียด</TH>
-            </TRow>
-          </THead>
-          <tbody>
-            {evaluations.length === 0 ? (
+      <div className="bg-white rounded-xl shadow overflow-hidden">
+        {evaluations.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-4 py-16 px-6 text-center">
+            <Frown size={56} className="text-gray-300" />
+            <div>
+              <p className="text-lg font-semibold text-gray-700">ยังไม่มีประวัติการประเมินคุณภาพ</p>
+              <p className="text-sm text-gray-500">เมื่อมีการประเมินแล้ว ข้อมูลจะแสดงที่นี่</p>
+            </div>
+          </div>
+        ) : (
+          <Table>
+            <THead>
               <TRow>
-                <TD colSpan={5}>
-                  <EmptyState icon={<Frown size={48} className="mx-auto mb-2 text-gray-400"/>} title="ยังไม่มีประวัติการประเมินคุณภาพ" subtitle="เมื่อมีการประเมินแล้ว ข้อมูลจะแสดงที่นี่" />
-                </TD>
+                <TH>ชื่อปลากัด</TH>
+                <TH>วันที่ส่ง</TH>
+                <TH>สถานะ</TH>
+                <TH>คะแนน</TH>
+                <TH>รายละเอียด</TH>
               </TRow>
-            ) : (
-              evaluations.map((evalItem) => (
+            </THead>
+            <tbody>
+              {evaluations.map((evalItem) => (
                 <TRow key={evalItem.id}>
                   <TD className="text-sm font-medium text-gray-900">{evalItem.betta_name}</TD>
                   <TD className="text-sm text-gray-500">{new Date(evalItem.evaluationDate).toLocaleDateString("th-TH")}</TD>
@@ -118,10 +120,10 @@ const QualityEvaluationHistory = () => {
                     <button onClick={() => openModal(evalItem)} className="text-purple-600 hover:text-purple-900 font-medium text-sm">ดูรายละเอียด</button>
                   </TD>
                 </TRow>
-              ))
-            )}
-          </tbody>
-        </Table>
+              ))}
+            </tbody>
+          </Table>
+        )}
       </div>
 
       {selectedEvaluation && (

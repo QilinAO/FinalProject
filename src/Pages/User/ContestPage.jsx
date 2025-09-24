@@ -80,13 +80,13 @@ const ContestPage = () => {
   return (
     <>
       <main className="page-container">
-        <section className="page-hero from-indigo-600 via-purple-600 to-pink-500 bg-gradient-to-br">
-          <div className="page-hero-content py-12 md:py-20 lg:py-24">
-            <div className="text-center mx-auto text-white px-4 sm:px-6 lg:px-8 max-w-5xl lg:max-w-6xl 2xl:max-w-7xl">
-              <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 drop-shadow">
+        <section className="page-hero">
+          <div className="page-hero-content ">
+            <div className="text-center max-w-5xl mx-auto">
+              <h1 className="text-5xl md:text-7xl font-bold mb-8">
                 🏆 การประกวดปลากัด
               </h1>
-              <p className="text-lg md:text-2xl text-white/95 font-medium leading-relaxed max-w-3xl mx-auto">
+              <p className="text-2xl md:text-3xl text-white/95 font-medium leading-relaxed">
                 ร่วมแข่งขันการประกวดปลากัดระดับมืออาชีพ เลือกเวทีที่ใช่ และแสดงผลงานที่โดดเด่นของคุณ
               </p>
             </div>
@@ -128,63 +128,54 @@ const ContestPage = () => {
               <>
                 {/* มือถือ: 1 คอลัมน์ / แท็บเล็ต: 2 / เดสก์ท็อป: 3 / ใหญ่มาก: 4–5 */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 lg:gap-6 xl:gap-7 2xl:gap-8">
-                  {contests.map((contest) => {
+                  {contests.map((contest, index) => {
                     const status = getContestStatus(contest);
                     return (
-                    <article
-                      key={contest.id}
-                      className="group rounded-2xl overflow-hidden bg-white/90 backdrop-blur border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex flex-col"
-                    >
-                      {/* โปสเตอร์ */}
-                      <div className="relative aspect-[16/9] overflow-hidden">
-                        <img
-                          src={contest.poster_url || PLACEHOLDER}
-                          alt={contest.name}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.01] transition-transform duration-300"
-                          loading="lazy"
-                          decoding="async"
-                          onError={(e) => { e.currentTarget.src = PLACEHOLDER; }}
-                        />
-                        <div className={`absolute left-3 top-3 px-2.5 py-1 text-xs font-semibold rounded-full border ${status.color}`}>
-                          {status.label}
-                        </div>
-                      </div>
-
-                      <div className="p-4 sm:p-5 lg:p-6 flex flex-col flex-1">
-                        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mb-2 line-clamp-2">
-                          {contest.name}
-                        </h2>
-
-                        <p className="text-gray-600 mb-3 sm:mb-4 lg:mb-5 flex-1 line-clamp-3">
-                          {contest.short_description}
-                        </p>
-
-                        <div className="space-y-1.5 text-xs sm:text-sm lg:text-base text-gray-500 mb-4">
-                          <div className="flex items-center gap-2">
-                            <Calendar size={16} aria-hidden />
-                            <span>
-                              {formatDate(contest.start_date)} - {formatDate(contest.end_date)}
-                            </span>
+                      <article
+                        key={contest.id}
+                        className="group relative bg-white rounded-3xl overflow-hidden shadow-soft hover:shadow-large transition-all duration-300 hover:-translate-y-1 border border-neutral-200/60 animate-stagger-in"
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                      >
+                        <Link to={`/contest/${contest.id}`} className="flex flex-col h-full">
+                          <div className="relative overflow-hidden h-48 bg-gradient-to-br from-primary-100 to-secondary-100">
+                            <img
+                              src={contest.poster_url || PLACEHOLDER}
+                              alt={contest.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                              decoding="async"
+                              onError={(e) => { e.currentTarget.src = PLACEHOLDER; }}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            <div className={`absolute left-4 top-4 px-3 py-1.5 text-xs font-semibold rounded-full backdrop-blur-sm bg-white/95 border ${status.color}`}>
+                              {status.label}
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="mt-auto flex flex-col xs:flex-row gap-2 sm:gap-3">
-                          <Link
-                            to={`/contest/${contest.id}`}
-                            className="w-full xs:w-1/2 text-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold transition-colors border border-gray-200"
-                          >
-                            ดูรายละเอียด
-                          </Link>
-                          <button
-                            onClick={() => handleJoinClick(contest)}
-                            className="w-full xs:w-1/2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors shadow-sm"
-                          >
-                            เข้าร่วมประกวด
-                          </button>
-                        </div>
-                      </div>
-                    </article>
-                  );})}
+                          <div className="p-6 flex flex-col flex-1">
+                            <h3 className="text-lg font-bold text-heading mb-3 group-hover:text-primary-700 transition-colors duration-300 line-clamp-2">
+                              {contest.name}
+                            </h3>
+
+                            {contest.short_description && (
+                              <p className="text-body text-sm leading-relaxed line-clamp-3 mb-4 flex-1 text-gray-600">
+                                {contest.short_description}
+                              </p>
+                            )}
+
+                            <div className="mt-auto flex items-center justify-between text-xs text-muted">
+                              <time className="flex items-center gap-1">
+                                📅 {formatDate(contest.start_date)} - {formatDate(contest.end_date)}
+                              </time>
+                              <span className="text-primary-500 font-medium group-hover:text-primary-700 transition-colors">
+                                ดูรายละเอียด →
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      </article>
+                    );
+                  })}
                 </div>
               </>
             ) : (

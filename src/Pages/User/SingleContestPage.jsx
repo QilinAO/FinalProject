@@ -106,9 +106,12 @@ const SingleContestPage = () => {
                 </span>
               </div>
               
-              <div className="prose max-w-none text-gray-700">
-                <p className="text-lg font-semibold">{content.short_description}</p>
-                <p>{content.full_description}</p>
+              <div className="prose max-w-none text-gray-700 space-y-4">
+                {/* <p className="text-lg font-semibold">{content.short_description}</p> */}
+                <div
+                  className="ql-editor !p-0"
+                  dangerouslySetInnerHTML={{ __html: content.full_description || "" }}
+                />
               </div>
 
               <div className="mt-8 pt-6 border-t">

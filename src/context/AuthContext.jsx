@@ -105,15 +105,11 @@ export const AuthProvider = ({ children }) => {
    */
   useEffect(() => {
     const handleUnauthorized = async () => {
-      try {
-        await signoutUser();
-      } finally {
-        setUser(null);
-      }
+      await restoreSession();
     };
     apiService.setOnUnauthorized(handleUnauthorized);
     return () => apiService.setOnUnauthorized(null);
-  }, []);
+  }, [restoreSession]);
 
   /**
    * ซิงก์ login/logout/แก้โปรไฟล์ ข้ามแท็บด้วย storage event

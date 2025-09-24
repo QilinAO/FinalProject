@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useDropzone } from "react-dropzone";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -9,6 +9,7 @@ import { Upload, Image, Video, Fish, Calendar, Award, Sparkles, ArrowLeft, Send 
 import { BETTA_TYPES } from "../../utils/bettaTypes";
 import { isUuid } from "../../utils/apiErrorHandler";
 import apiService from "../../services/api";
+import modelService from "../../services/modelService";
 
 // Environment variables
 // const API_BASE = "http://localhost:4000/api"; // Local development API (ยกเลิกการฮาร์ดโค้ด ใช้ proxy /api แทน)
@@ -21,7 +22,15 @@ const BettaEvaluationForm = () => {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [video, setVideo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [autoSuggest, setAutoSuggest] = useState(null);
+  const [analysisSummary, setAnalysisSummary] = useState(null);
+  const [aiSuggestedType, setAiSuggestedType] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState(null);
+  const latestAnalysisRef = useRef(0);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
+  const [showTypeChangeModal, setShowTypeChangeModal] = useState(false);
+  const [pendingTypeChange, setPendingTypeChange] = useState(null);
 
   // --- Hooks ---
   const navigate = useNavigate();
@@ -44,55 +53,162 @@ const BettaEvaluationForm = () => {
     },
   });
 
-  // --- AI Analysis Function ---
-  const analyzeBettaTypeAuto = useCallback(async (imageFile) => {
-    if (!imageFile) return;
+  const removeImagesByIndices = useCallback((indices) => {
+    if (!indices || indices.length === 0) {
+      return;
+    }
+
+    const removeSet = new Set(indices);
+
+    setImagePreviews((prev) => {
+      const next = [];
+      prev.forEach((item, idx) => {
+        if (removeSet.has(idx)) {
+          try {
+            item?.url && URL.revokeObjectURL(item.url);
+          } catch {}
+        } else {
+          next.push(item);
+        }
+      });
+      return next;
+    });
+
+    setImages((prev) => prev.filter((_, idx) => !removeSet.has(idx)));
+  }, []);
+
+  const analyzeImagesForConsistency = useCallback(async (files) => {
+    const runId = ++latestAnalysisRef.current;
+
+    if (!files || files.length === 0) {
+      setAnalysisSummary(null);
+      setAiSuggestedType(null);
+      setAnalysisError(null);
+      setAnalysisLoading(false);
+      setValue("betta_type", "", { shouldDirty: true });
+      return;
+    }
+
+    if (files.length < 3) {
+      setAnalysisSummary(null);
+      setAiSuggestedType(null);
+      setAnalysisError("กรุณาอัปโหลดรูปภาพให้ครบ 3 รูปเพื่อให้ AI ตรวจสอบความตรงกัน");
+      setAnalysisLoading(false);
+      setValue("betta_type", "", { shouldDirty: true });
+      return;
+    }
+
+    setAnalysisError(null);
+    setAnalysisLoading(true);
 
     try {
-      const fd = new FormData();
-      fd.append("image", imageFile);
+      const response = await modelService.analyzeBatchImages(files, { analysis_type: "quality" });
+      if (runId !== latestAnalysisRef.current) return;
 
-      // ใช้ proxy เส้นทาง /api เพื่อให้มือถือใน LAN เรียกได้แน่นอน
-      const json = await apiService.post('/model/analyze-single', fd);
-      const result = json?.data;
-      const top1 = result?.top1;
-      const finalLabel = result?.final_label;
+      const payload = response?.data || response;
+      const perImage = payload?.consistency?.per_image || [];
+      const inconsistent = payload?.consistency?.inconsistent_indices || [];
+      const consensusType = payload?.consensus?.predicted_type || null;
+      const successfulCount = payload?.successful_images ?? perImage.filter((item) => item.success).length;
 
-      if (top1 && finalLabel) {
-        const code = finalLabel.code;
-        const name = finalLabel.name;
-        const prob = typeof top1.prob === "number" ? top1.prob : null;
-
-        if (result.is_confident && code && code !== "OTHER") {
-          const exist = BETTA_TYPES.some((opt) => opt.value === code);
-          if (exist) {
-            setValue("betta_type", code, { shouldValidate: true, shouldDirty: true });
-            setAutoSuggest({ code, name, prob });
-            toast.success(`AI วิเคราะห์เป็น: ${name}${prob != null ? ` (${(prob * 100).toFixed(1)}%)` : ""}`);
-          } else {
-            setAutoSuggest({ code, name, prob });
-            toast.info(`AI วิเคราะห์ได้: ${name} (แต่ไม่มีรหัสนี้ในตัวเลือก)`);
-          }
-        } else {
-          setAutoSuggest({ code: code || "OTHER", name: name || "อื่นๆ / ไม่แน่ใจ", prob });
-          toast.info(`AI ยังไม่มั่นใจ (${name || "OTHER"}) — กรุณาเลือกประเภทด้วยตนเอง`);
+      if (successfulCount !== files.length) {
+        const failed = perImage.filter((item) => !item.success).map((item) => item.index);
+        if (failed.length) {
+          removeImagesByIndices(failed);
+          toast.error("บางรูปไม่สามารถวิเคราะห์ได้ ระบบจึงลบรูปนั้นออก กรุณาอัปโหลดใหม่");
         }
+        setAnalysisSummary(null);
+        setAiSuggestedType(null);
+        setValue("betta_type", "", { shouldDirty: true });
+        return;
       }
-    } catch (err) {
-      console.error("Error analyzing betta type:", err);
-      toast.error("ไม่สามารถติดต่อเซิร์ฟเวอร์วิเคราะห์ภาพได้");
-    }
-  }, [setValue]);
 
-  // วิเคราะห์รูปแรกอัตโนมัติเมื่อมีการอัปโหลด
-  useEffect(() => {
-    if (images.length > 0) {
-      const timer = setTimeout(() => {
-        analyzeBettaTypeAuto(images[0]);
-      }, 120);
-      return () => clearTimeout(timer);
+      if (!consensusType) {
+        setAnalysisSummary(null);
+        setAiSuggestedType(null);
+        setValue("betta_type", "", { shouldDirty: true });
+        toast.error("ไม่สามารถสรุปประเภทปลากัดได้ กรุณาลองใหม่");
+        return;
+      }
+
+      if (inconsistent.length > 0) {
+        if (inconsistent.length === files.length) {
+          setImagePreviews((prev) => {
+            prev.forEach((item) => {
+              try { item?.url && URL.revokeObjectURL(item.url); } catch {}
+            });
+            return [];
+          });
+          setImages([]);
+          toast.error("ปลากัดทั้ง 3 รูปไม่ตรงกัน ระบบจึงลบรูปทั้งหมด กรุณาอัปโหลดใหม่ให้เป็นประเภทเดียวกัน");
+        } else {
+          const displayNumbers = inconsistent.map((i) => i + 1).join(", ");
+          removeImagesByIndices(inconsistent);
+          toast.error(`รูปภาพหมายเลข ${displayNumbers} ไม่เป็นประเภทเดียวกัน ระบบจึงลบออก กรุณาอัปโหลดใหม่ให้เป็นประเภทเดียวกันทั้งหมด`);
+        }
+        setAnalysisSummary(null);
+        setAiSuggestedType(null);
+        setValue("betta_type", "", { shouldDirty: true });
+        return;
+      }
+
+      const confidences = files.map((_, idx) => {
+        const entry = perImage.find((item) => item.index === idx);
+        const raw = Number(entry?.confidence ?? 0);
+        return Number.isFinite(raw) ? Math.max(0, raw) : 0;
+      });
+      const sumConfidence = confidences.reduce((sum, value) => sum + value, 0);
+      const normalizedPercents = confidences.map((value) => {
+        if (sumConfidence > 0) {
+          return (value / sumConfidence) * 100;
+        }
+        return files.length ? 100 / files.length : 0;
+      });
+      const averageConfidence = confidences.length
+        ? sumConfidence / confidences.length
+        : Number(payload?.consensus?.confidence ?? 0);
+      const bettaInfo = BETTA_TYPES.find((opt) => opt.value === consensusType);
+
+      if (!bettaInfo) {
+        setAnalysisSummary(null);
+        setAiSuggestedType(null);
+        setValue("betta_type", "", { shouldDirty: true });
+        const warnMsg = "AI ไม่มั่นใจว่าเป็นปลากัดประเภทใด กรุณาเลือกประเภทด้วยตนเองหรืออัปโหลดรูปใหม่";
+        setAnalysisError(warnMsg);
+        toast.warn(warnMsg);
+        return;
+      }
+
+      setAnalysisSummary({
+        code: consensusType,
+        name: bettaInfo.label,
+        confidence: Number.isFinite(averageConfidence) ? Math.min(1, Math.max(0, averageConfidence)) : 0,
+        normalizedPercents,
+      });
+      setAiSuggestedType(consensusType);
+      setAnalysisError(null);
+      setValue("betta_type", consensusType, { shouldValidate: true, shouldDirty: false });
+    } catch (error) {
+      if (runId !== latestAnalysisRef.current) return;
+      console.error("Error analyzing images:", error);
+      setAnalysisSummary(null);
+      setAiSuggestedType(null);
+      setValue("betta_type", "", { shouldDirty: true });
+      const message = error?.message?.includes("เซสชัน")
+        ? "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่เพื่อใช้งานการวิเคราะห์"
+        : "ไม่สามารถวิเคราะห์รูปภาพได้ กรุณาลองใหม่อีกครั้ง";
+      setAnalysisError(message);
+      toast.error(message);
+    } finally {
+      if (runId === latestAnalysisRef.current) {
+        setAnalysisLoading(false);
+      }
     }
-  }, [images, analyzeBettaTypeAuto]);
+  }, [removeImagesByIndices, setValue]);
+
+  useEffect(() => {
+    analyzeImagesForConsistency(images);
+  }, [images, analyzeImagesForConsistency]);
 
   // โหลดชื่อการประกวด (ถ้ามี)
   useEffect(() => {
@@ -123,9 +239,8 @@ const BettaEvaluationForm = () => {
 
   // ย้ายการสร้าง URL ไปทำเฉพาะตอน drop และลบตอน remove/unmount เพื่อลดโอกาส revoke เร็วเกินไป
   const onDropImages = (acceptedFiles) => {
-    // เตือนเรื่องจำนวนไฟล์เกิน นอก callback ของ setState
     if (images.length + acceptedFiles.length > 3) {
-      toast.info("เลือกรูปได้สูงสุด 3 รูป");
+      toast.info("อัปโหลดได้สูงสุด 3 รูปภาพเท่านั้น");
     }
 
     const newFiles = [...images, ...acceptedFiles].slice(0, 3);
@@ -134,6 +249,12 @@ const BettaEvaluationForm = () => {
 
     setImages(newFiles);
     setImagePreviews((prev) => [...prev, ...newPreviews]);
+    setAnalysisSummary(null);
+    setAiSuggestedType(null);
+    setAnalysisError(null);
+    setAnalysisLoading(false);
+    setShowTypeChangeModal(false);
+    setPendingTypeChange(null);
   };
 
   const onDropVideo = (acceptedFiles) => setVideo(acceptedFiles[0]);
@@ -145,6 +266,12 @@ const BettaEvaluationForm = () => {
       return prev.filter((_, i) => i !== index);
     });
     setImages((prev) => prev.filter((_, i) => i !== index));
+    setAnalysisSummary(null);
+    setAiSuggestedType(null);
+    setAnalysisError(null);
+    setAnalysisLoading(false);
+    setShowTypeChangeModal(false);
+    setPendingTypeChange(null);
   };
   const removeVideo = () => setVideo(null);
 
@@ -169,38 +296,51 @@ const BettaEvaluationForm = () => {
     maxFiles: 1,
   });
 
-  const onSubmit = async (formData) => {
+  const validateBeforeSubmit = (formData) => {
     if (!formData.betta_type) {
       toast.error("กรุณาเลือกประเภทปลากัด");
-      return;
+      return false;
     }
 
+    if (images.length !== 3) {
+      toast.error("กรุณาอัปโหลดรูปภาพปลากัดให้ครบ 3 รูปก่อนส่งประเมิน");
+      return false;
+    }
+
+    if (!analysisSummary) {
+      toast.error("กรุณาให้ระบบ AI ตรวจสอบและยืนยันรูปภาพทั้ง 3 รูปให้เรียบร้อยก่อนส่งประเมิน");
+      return false;
+    }
+
+    return true;
+  };
+
+  const submitForm = async (formData) => {
     setIsSubmitting(true);
     try {
       const apiFormData = new FormData();
       apiFormData.append("betta_name", formData.betta_name);
-      apiFormData.append("betta_type", formData.betta_type); // ใช้ code เช่น 'D','F','C'
+      apiFormData.append("betta_type", formData.betta_type);
       if (formData.betta_age_months) {
         apiFormData.append("betta_age_months", String(formData.betta_age_months));
       }
 
-      // เพิ่มรูปภาพ
       images.forEach((image) => {
         apiFormData.append("images", image);
       });
 
-      // เพิ่มวิดีโอ (ถ้ามี)
       if (video) {
         apiFormData.append("video", video);
       }
 
-      // เพิ่ม contest_id (ถ้าเป็นการประกวด)
       if (submissionMode === "compete" && contestId) {
         apiFormData.append("contest_id", contestId);
       }
 
-      const response = await apiService.post("/submissions", apiFormData);
+      await apiService.post("/submissions", apiFormData);
       toast.success("ส่งข้อมูลสำเร็จ!");
+      setShowConfirmModal(false);
+      setPendingFormData(null);
       navigate("/history");
     } catch (error) {
       let errorMessage = "เกิดข้อผิดพลาดในการส่งข้อมูล";
@@ -230,10 +370,62 @@ const BettaEvaluationForm = () => {
     }
   };
 
-  const pageTitle = submissionMode === "compete" ? "ส่งปลากัดเข้าร่วมประกวด" : "ส่งปลากัดเพื่อประเมินคุณภาพ";
+  const requestSubmit = (formData) => {
+    if (!validateBeforeSubmit(formData)) return;
+    setPendingFormData(formData);
+    setShowConfirmModal(true);
+  };
+
+  const confirmSubmit = () => {
+    if (!pendingFormData || isSubmitting) return;
+    submitForm(pendingFormData);
+  };
+
+  const cancelConfirm = () => {
+    if (isSubmitting) return;
+    setShowConfirmModal(false);
+    setPendingFormData(null);
+  };
+
   const selectedType = watch("betta_type");
+  const bettaTypeField = register("betta_type", { required: true });
+
+  const handleBettaTypeChange = (event, defaultOnChange) => {
+    const nextType = event.target.value;
+    const currentType = selectedType || "";
+
+    if (!nextType) {
+      defaultOnChange(event);
+      return;
+    }
+
+    if (aiSuggestedType && nextType !== aiSuggestedType) {
+      setPendingTypeChange(nextType);
+      setShowTypeChangeModal(true);
+      // Revert to current value (AI suggestion) until user confirms
+      setValue("betta_type", currentType, { shouldDirty: false });
+      return;
+    }
+
+    defaultOnChange(event);
+  };
+
+  const confirmTypeChange = () => {
+    if (!pendingTypeChange) return;
+    setValue("betta_type", pendingTypeChange, { shouldDirty: true, shouldValidate: true });
+    setPendingTypeChange(null);
+    setShowTypeChangeModal(false);
+  };
+
+  const cancelTypeChange = () => {
+    setPendingTypeChange(null);
+    setShowTypeChangeModal(false);
+  };
+
+  const isReadyForSubmission = images.length === 3 && !!analysisSummary;
 
   return (
+    <>
     <main className="min-h-screen">
       {/* Header */}
       <div className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-blue-800 text-white py-20 lg:py-28 overflow-hidden">
@@ -373,7 +565,7 @@ const BettaEvaluationForm = () => {
           </div>
 
           <div className="betta-card max-w-7xl mx-auto p-8 lg:p-12">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-12">
+            <form onSubmit={handleSubmit(requestSubmit)} className="space-y-12">
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
               {/* ซ้าย: อัปโหลดสื่อ */}
               <section className="space-y-8">
@@ -402,7 +594,7 @@ const BettaEvaluationForm = () => {
                       </h4>
                       <div className="space-y-2">
                         <p className="text-body font-medium">📱 รองรับไฟล์: JPG, PNG, WEBP</p>
-                        <p className="text-muted">สูงสุด 3 รูป • ขนาดไม่เกิน 10MB ต่อรูป</p>
+                        <p className="text-muted">ต้องอัปโหลดครบ 3 รูป • ชัดเจน • ประเภทต้องตรงกันทั้งหมด</p>
                         <div className="inline-flex items-center gap-2 bg-primary-100 text-primary-700 px-4 py-2 rounded-full text-sm font-medium">
                           <Image className="h-4 w-4" />
                           อัปโหลดรูปที่ชัดเจนเพื่อการประเมิน
@@ -437,6 +629,42 @@ const BettaEvaluationForm = () => {
                             </div>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {images.length === 3 && analysisLoading && (
+                    <div className="mt-6 p-6 rounded-2xl bg-primary-50 border border-primary-100 text-primary-700 text-sm font-medium flex items-center gap-3">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-400 border-t-transparent"></div>
+                      AI กำลังตรวจสอบความตรงกันของรูปภาพทั้ง 3 รูป กรุณารอสักครู่...
+                    </div>
+                  )}
+
+                  {!!analysisError && !analysisLoading && (
+                    <div className="mt-6 p-6 rounded-2xl bg-error-50 border border-error-200 text-error-700 text-sm font-medium">
+                      {analysisError}
+                    </div>
+                  )}
+
+                  {analysisSummary && !analysisLoading && (
+                    <div className="mt-6 p-6 rounded-2xl bg-green-50 border border-green-200 text-green-800">
+                      <h4 className="text-lg font-semibold flex items-center gap-2 mb-3">
+                        <Sparkles className="h-5 w-5 text-green-500" />
+                        ผลวิเคราะห์จาก AI (รวม 3 รูปภาพ)
+                      </h4>
+                      <p className="text-sm md:text-base mb-4 leading-relaxed">
+                        AI สรุปว่าปลากัดของคุณเป็น <span className="font-bold">{analysisSummary.name}</span> ด้วยความมั่นใจรวม
+                        <span className="font-semibold"> {(analysisSummary.confidence * 100).toFixed(1)}%</span>
+                      </p>
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="relative w-40 h-40 flex items-center justify-center rounded-full bg-white shadow-inner">
+                          <div className="text-3xl font-bold text-green-700">
+                            {(analysisSummary.confidence * 100).toFixed(1)}%
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted text-center">
+                          ระบบตรวจสอบความตรงกันของทั้ง 3 รูปภาพแล้ว และลบรูปที่ไม่ตรงประเภทโดยอัตโนมัติหากพบความคลาดเคลื่อน
+                        </p>
                       </div>
                     </div>
                   )}
@@ -546,10 +774,12 @@ const BettaEvaluationForm = () => {
                         🧬 ประเภทปลากัด
                       </label>
                       <select
-                        {...register("betta_type", { required: true })}
+                        name={bettaTypeField.name}
+                        ref={bettaTypeField.ref}
+                        onBlur={bettaTypeField.onBlur}
                         className="form-select-enhanced text-lg"
                         value={selectedType || ""}
-                        onChange={(e) => setValue("betta_type", e.target.value, { shouldDirty: true })}
+                        onChange={(event) => handleBettaTypeChange(event, bettaTypeField.onChange)}
                       >
                         <option value="">🔍 เลือกประเภทปลากัด...</option>
                         {BETTA_TYPES.map((opt) => (
@@ -571,7 +801,7 @@ const BettaEvaluationForm = () => {
               </section>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit Section */}
             <div className="mt-12 border-t-2 border-gradient-to-r from-primary-200 to-secondary-200 pt-12">
               <div className="text-center mb-8">
                 <h4 className="text-xl font-bold text-heading mb-2">
@@ -584,7 +814,7 @@ const BettaEvaluationForm = () => {
                   }
                 </p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-6 justify-center max-w-2xl mx-auto">
                 <button
                   type="button"
@@ -597,33 +827,27 @@ const BettaEvaluationForm = () => {
                 
                 <button
                   type="submit"
-                  disabled={isSubmitting || images.length === 0}
+                  disabled={isSubmitting || !isReadyForSubmission}
                   className="relative flex items-center justify-center gap-3 px-12 py-4 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white font-bold rounded-2xl transition-all duration-300 hover:scale-105 shadow-large hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 text-lg flex-1 sm:flex-none"
                 >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
-                      <span>กำลังส่ง...</span>
-                      <div className="absolute inset-0 bg-gradient-to-r from-primary-400/20 to-secondary-400/20 rounded-2xl animate-pulse"></div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="bg-white/20 rounded-full p-2">
-                        <Send className="h-5 w-5" />
-                      </div>
-                      <span>
-                        {submissionMode === "compete" ? "🏆 ส่งเข้าร่วมประกวด" : "🚀 ส่งประเมินปลากัด"}
-                      </span>
-                    </>
-                  )}
+                  <div className="bg-white/20 rounded-full p-2">
+                    <Send className="h-5 w-5" />
+                  </div>
+                  <span>
+                    {submissionMode === "compete" ? "🏆 ส่งเข้าร่วมประกวด" : "🚀 ส่งประเมินปลากัด"}
+                  </span>
                 </button>
               </div>
               
-              {images.length === 0 && (
+              {images.length !== 3 && (
                 <div className="mt-6 text-center">
-                  <p className="text-error-600 font-medium flex items-center justify-center gap-2">
-                    ⚠️ กรุณาอัปโหลดรูปภาพปลากัดอย่างน้อย 1 รูป
-                  </p>
+                  <p className="text-error-600 font-medium flex items-center justify-center gap-2">⚠️ กรุณาอัปโหลดรูปภาพปลากัดให้ครบ 3 รูป</p>
+                </div>
+              )}
+
+              {images.length === 3 && !analysisLoading && !analysisSummary && (
+                <div className="mt-6 text-center">
+                  <p className="text-amber-600 font-medium flex items-center justify-center gap-2">⚠️ กรุณารอให้ AI ตรวจสอบรูปภาพทั้ง 3 รูปให้เรียบร้อยก่อนส่ง</p>
                 </div>
               )}
             </div>
@@ -632,6 +856,101 @@ const BettaEvaluationForm = () => {
         </div>
       </div>
     </main>
+
+    {showTypeChangeModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div
+          className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-5"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="type-change-title"
+        >
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-5 w-5 text-secondary-500" />
+            <h3 id="type-change-title" className="text-lg font-bold text-heading">ยืนยันการเปลี่ยนประเภทปลากัด</h3>
+          </div>
+          <p className="text-sm text-body">
+            AI แนะนำประเภท <span className="font-semibold">{analysisSummary?.name}</span> แต่คุณเลือกประเภทอื่น
+            ท่านต้องการยืนยันการเปลี่ยนแปลงประเภทปลากัดหรือไม่?
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <button
+              type="button"
+              onClick={cancelTypeChange}
+              className="px-5 py-2.5 rounded-2xl border border-neutral-200 text-neutral-700 hover:bg-neutral-100 transition"
+            >
+              ไม่
+            </button>
+            <button
+              type="button"
+              onClick={confirmTypeChange}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-secondary-500 to-accent-500 text-white font-semibold hover:from-secondary-600 hover:to-accent-600 transition"
+            >
+              ใช่
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {showConfirmModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div
+          className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 space-y-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-submit-title"
+        >
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-6 w-6 text-primary-500" />
+            <h3 id="confirm-submit-title" className="text-xl font-bold text-heading">ยืนยันการส่งประเมินปลากัด</h3>
+          </div>
+
+          <p className="text-body text-sm">
+            ระบบจะส่งข้อมูลปลากัด ประเภท:{analysisSummary.name} ของคุณให้ผู้เชี่ยวชาญ ทำการประเมินทันทีหลังจากกดยืนยัน คุณต้องการดำเนินการต่อหรือไม่?
+          </p>
+
+          {analysisSummary && (
+            <div className="bg-primary-50 border border-primary-200 rounded-2xl p-4 text-primary-700 text-sm space-y-1">
+              <p><span className="font-semibold">ประเภท:</span> {analysisSummary.name}</p>
+              {pendingFormData?.betta_name && (
+                <p><span className="font-semibold">ชื่อปลากัด:</span> {pendingFormData.betta_name}</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+            <button
+              type="button"
+              onClick={cancelConfirm}
+              disabled={isSubmitting}
+              className="px-5 py-2.5 rounded-2xl border border-neutral-200 text-neutral-700 hover:bg-neutral-100 transition disabled:opacity-60"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={confirmSubmit}
+              disabled={isSubmitting}
+              className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-primary-500 to-secondary-500 text-white font-semibold hover:from-primary-600 hover:to-secondary-600 transition disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <span>กำลังส่ง...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  <span>ยืนยันการส่ง</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

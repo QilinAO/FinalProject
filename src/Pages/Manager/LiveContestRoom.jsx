@@ -3,14 +3,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from '../../ui/Modal';
 import { toast } from 'react-toastify';
-import { Check, X, Eye, LoaderCircle, XCircle, PlayCircle, Lock, Trophy, AlertTriangle, ArrowLeft, Users, CheckSquare, Clock, Calendar, Sparkles, Info, Fish } from 'lucide-react';
+import { Check, X, Eye, LoaderCircle, XCircle, PlayCircle, Lock, Trophy, AlertTriangle, ArrowLeft, Users, CheckSquare, Clock, Calendar, Sparkles, Info, Fish, ListChecks } from 'lucide-react';
 import { Table, THead, TH, TD, TRow } from '../../ui/Table';
 import Badge from '../../ui/Badge';
 import Button from '../../ui/Button';
 
 import ManagerMenu from '../../Component/ManagerMenu';
 import PageHeader from '../../ui/PageHeader';
-import { getMyContests, getContestSubmissions, updateSubmissionStatus, updateMyContest, finalizeContest, getScoringProgress } from '../../services/managerService';
+import { getMyContests, getContestSubmissions, updateSubmissionStatus, updateMyContest, finalizeContest, getScoringProgress, getScoresForSubmission } from '../../services/managerService';
 import { getBettaTypeLabel, BETTA_TYPE_MAP_ID, BETTA_TYPE_MAP_SLUG } from '../../utils/bettaTypes';
 
 // อ่านค่า API_BASE จากบริการ axios ที่ตั้งไว้ หรือ fallback จาก Vite env
@@ -52,6 +52,13 @@ const POSTER_PLACEHOLDER =
 <rect width="640" height="360" fill="url(#g)"/>\
 <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="#9ca3af" font-family="Arial" font-size="24">No poster</text>\
 </svg>';
+
+const formatDateTime = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+};
 
 const statusBadgeCls = (status) => {
   switch (status) {
@@ -101,6 +108,15 @@ const LiveContestRoom = () => {
   const [aiDetail, setAiDetail] = useState(null);
   const [aiFilter, setAiFilter] = useState('all'); // all | match | mismatch | uncertain
   const [scoringProgress, setScoringProgress] = useState({ judges_total: 0, submissions: [] });
+  const [scoresCache, setScoresCache] = useState({});
+  const [scoreModal, setScoreModal] = useState({ open: false, submission: null, scores: [], loading: false, error: null });
+  const judgeScoresSummary = useMemo(() => {
+    const evaluatedScores = (scoreModal.scores || []).filter(row => row && row.status === 'evaluated' && row.score != null);
+    if (!evaluatedScores.length) return { average: null, evaluatedCount: 0 };
+    const total = evaluatedScores.reduce((sum, row) => sum + row.score, 0);
+    const average = Math.round((total / evaluatedScores.length) * 100) / 100;
+    return { average, evaluatedCount: evaluatedScores.length };
+  }, [scoreModal.scores]);
 
   useEffect(() => {
     fetchContests();
@@ -156,6 +172,8 @@ const LiveContestRoom = () => {
   const handleSelectContest = (contest) => {
     setSelectedContest(contest);
     setAiScan({});
+    setScoresCache({});
+    setScoreModal({ open: false, submission: null, scores: [], loading: false, error: null });
     fetchSubmissions(contest.id);
     fetchScoringProgress(contest.id);
   };
@@ -167,7 +185,17 @@ const LiveContestRoom = () => {
     setFilterStatus('pending');
     setAiResult(null);
     setAiScan({});
+    setScoresCache({});
+    setScoreModal({ open: false, submission: null, scores: [], loading: false, error: null });
   };
+
+  useEffect(() => {
+    setSelectedSubmissions([]);
+  }, [filterStatus]);
+
+  useEffect(() => {
+    setSelectedSubmissions(prev => prev.filter(id => submissions.some(sub => sub.id === id)));
+  }, [submissions]);
 
   const handleSelectSubmission = (submissionId) => {
     setSelectedSubmissions(prev =>
@@ -336,6 +364,43 @@ const LiveContestRoom = () => {
     await Promise.all(new Array(concurrency).fill(0).map(() => worker()));
   };
 
+  const openScoreModal = async (submission) => {
+    if (!submission) return;
+    const targetId = submission.id;
+    const cached = scoresCache[targetId];
+    setScoreModal({ open: true, submission, scores: cached || [], loading: true, error: null });
+
+    try {
+      const raw = await getScoresForSubmission(targetId);
+      const normalized = (Array.isArray(raw) ? raw : []).map(item => {
+        const first = (item?.evaluator?.first_name || '').trim();
+        const last = (item?.evaluator?.last_name || '').trim();
+        const displayName = `${first} ${last}`.trim() || 'กรรมการไม่ระบุชื่อ';
+        const numericScore = Number(item?.total_score);
+        return {
+          id: item?.evaluator_id || displayName,
+          name: displayName,
+          status: item?.status || 'pending',
+          score: Number.isFinite(numericScore) ? numericScore : null,
+          evaluatedAt: item?.evaluated_at || null,
+        };
+      });
+
+      setScoresCache(prev => ({ ...prev, [targetId]: normalized }));
+      setScoreModal(prev => (prev.submission?.id === targetId
+        ? { open: true, submission, scores: normalized, loading: false, error: null }
+        : prev));
+    } catch (err) {
+      setScoreModal(prev => (prev.submission?.id === targetId
+        ? { ...prev, loading: false, error: err?.message || 'ไม่สามารถโหลดคะแนนได้' }
+        : prev));
+    }
+  };
+
+  const closeScoreModal = () => {
+    setScoreModal({ open: false, submission: null, scores: [], loading: false, error: null });
+  };
+
   const quickApprove = async (submissionId) => {
     setActionLoading(true);
     try {
@@ -356,6 +421,35 @@ const LiveContestRoom = () => {
       await fetchSubmissions(selectedContest.id);
       setFilterStatus('rejected');
     } catch (e) { toast.error(e.message || 'ปฏิเสธไม่สำเร็จ'); } finally { setActionLoading(false); }
+  };
+
+  const handleBulkScoreApproval = async () => {
+    if (!selectedContest) return;
+    if (selectedSubmissions.length === 0) {
+      toast.info('กรุณาเลือกผู้สมัครก่อน');
+      return;
+    }
+    if (!window.confirm(`ยืนยันอนุมัติผลคะแนนของ ${selectedSubmissions.length} รายการหรือไม่?`)) return;
+
+    setIsProcessing(true);
+    try {
+      await Promise.all(selectedSubmissions.map(id => updateSubmissionStatus(id, 'approved')));
+      toast.success('อนุมัติผลคะแนนสำเร็จ');
+      setScoresCache(prev => {
+        if (!prev) return prev;
+        const clone = { ...prev };
+        selectedSubmissions.forEach(id => delete clone[id]);
+        return clone;
+      });
+      setSelectedSubmissions([]);
+      await fetchSubmissions(selectedContest.id);
+      await fetchScoringProgress(selectedContest.id);
+      setFilterStatus('evaluated');
+    } catch (error) {
+      toast.error(error?.message || 'ไม่สามารถอนุมัติผลคะแนนได้');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const ContestCard = ({ contest }) => {
@@ -393,6 +487,8 @@ const LiveContestRoom = () => {
   };
 
   const ContestDashboard = () => {
+    const selectableStatuses = ['pending', 'approved', 'evaluated'];
+    const isSelectable = selectableStatuses.includes(filterStatus);
     const stats = useMemo(() => ({
       totalOwners: Array.from(new Set(submissions.map(s => s?.owner?.id))).filter(Boolean).length,
       totalFish: submissions.length,
@@ -428,6 +524,8 @@ const LiveContestRoom = () => {
       }
       return list;
     }, [submissions, filterStatus, aiFilter, aiScan]);
+    const allSelected = isSelectable && filteredSubmissions.length > 0 && filteredSubmissions.every(sub => selectedSubmissions.includes(sub.id));
+    const totalColumns = isSelectable ? 7 : 6;
 
     const getStatusBadge = (status) => {
       const variant = status === 'approved' || status === 'evaluated' ? 'green' : status === 'rejected' ? 'red' : 'gray';
@@ -533,8 +631,16 @@ const LiveContestRoom = () => {
             <div className="mb-4 flex flex-wrap gap-2 items-center">
               {stats.pending > 0 && (
                 <>
-              <button onClick={() => handleBulkAction('approved')} className="px-3 py-1 bg-green-500 text-white rounded text-sm">อนุมัติที่เลือก</button>
-              <button onClick={() => handleBulkAction('rejected')} className="px-3 py-1 bg-red-500 text-white rounded text-sm">ปฏิเสธที่เลือก</button>
+                  <button
+                    onClick={() => handleBulkAction('approved')}
+                    className="px-3 py-1 bg-green-500 text-white rounded text-sm disabled:opacity-60"
+                    disabled={isProcessing || selectedSubmissions.length === 0}
+                  >อนุมัติที่เลือก</button>
+                  <button
+                    onClick={() => handleBulkAction('rejected')}
+                    className="px-3 py-1 bg-red-500 text-white rounded text-sm disabled:opacity-60"
+                    disabled={isProcessing || selectedSubmissions.length === 0}
+                  >ปฏิเสธที่เลือก</button>
                 </>
               )}
               <div className="ml-auto flex gap-2">
@@ -550,8 +656,24 @@ const LiveContestRoom = () => {
             <div className="mb-4 flex flex-wrap gap-2 items-center">
               {stats.approved > 0 && (
                 <>
-                  <button onClick={() => handleBulkAction('rejected')} className="px-3 py-1 bg-red-600 text-white rounded text-sm">ยกเลิกการอนุมัติที่เลือก</button>
+                  <button
+                    onClick={() => handleBulkAction('rejected')}
+                    className="px-3 py-1 bg-red-600 text-white rounded text-sm disabled:opacity-60"
+                    disabled={isProcessing || selectedSubmissions.length === 0}
+                  >ยกเลิกการอนุมัติที่เลือก</button>
                 </>
+              )}
+            </div>
+          )}
+          {filterStatus === 'evaluated' && (
+            <div className="mb-4 flex flex-wrap gap-2 items-center">
+              <button
+                onClick={handleBulkScoreApproval}
+                className="px-3 py-1 bg-indigo-600 text-white rounded text-sm disabled:opacity-60"
+                disabled={isProcessing || selectedSubmissions.length === 0}
+              >อนุมัติผลคะแนนที่เลือก</button>
+              {selectedSubmissions.length > 0 && (
+                <span className="text-xs text-gray-500">เลือก {selectedSubmissions.length} รายการ</span>
               )}
             </div>
           )}
@@ -559,19 +681,36 @@ const LiveContestRoom = () => {
             <Table>
               <THead>
                 <TRow>
-                  {(filterStatus === 'pending' || filterStatus === 'approved') && <TH className="w-10"><input type="checkbox" onChange={() => handleSelectAll(filteredSubmissions.map(s => s.id))} checked={selectedSubmissions.length === filteredSubmissions.length && filteredSubmissions.length > 0}/></TH>}
+                  {isSelectable && (
+                    <TH className="w-10">
+                      <input
+                        type="checkbox"
+                        onChange={() => handleSelectAll(filteredSubmissions.map(s => s.id))}
+                        checked={allSelected}
+                        disabled={filteredSubmissions.length === 0}
+                      />
+                    </TH>
+                  )}
                   <TH>ชื่อปลากัด</TH>
                   <TH>เจ้าของ</TH>
                   <TH>สถานะ</TH>
                   <TH>สถานะ AI</TH>
-                  <TH>คะแนนกรรมการ</TH>
+                  <TH>คะแนนสุดท้าย</TH>
                   <TH className="text-center">จัดการ</TH>
                 </TRow>
               </THead>
               <tbody>
                 {filteredSubmissions.map(sub => (
                   <TRow key={sub.id}>
-                    {(filterStatus === 'pending' || filterStatus === 'approved') && <TD><input type="checkbox" checked={selectedSubmissions.includes(sub.id)} onChange={() => handleSelectSubmission(sub.id)}/></TD>}
+                    {isSelectable && (
+                      <TD>
+                        <input
+                          type="checkbox"
+                          checked={selectedSubmissions.includes(sub.id)}
+                          onChange={() => handleSelectSubmission(sub.id)}
+                        />
+                      </TD>
+                    )}
                     <TD className="font-semibold">{sub.fish_name}</TD>
                     <TD className="text-gray-600">{sub.owner.first_name}</TD>
                     <TD>{getStatusBadge(sub.status)}</TD>
@@ -588,18 +727,22 @@ const LiveContestRoom = () => {
                     <TD>
                       {(() => {
                         const row = (scoringProgress.submissions || []).find(r => r.submission_id === sub.id);
-                        if (!row) return <span className="text-xs text-gray-500">-</span>;
-                        const total = scoringProgress.judges_total || 0;
-                        const done = row.evaluated_count || 0;
+                        const finalScore = sub.final_score != null
+                          ? Number(sub.final_score)
+                          : row?.average_score != null ? Number(row.average_score) : null;
+
                         return (
-                          <div className="text-xs text-gray-700">
-                            <span className="inline-block px-2 py-0.5 rounded bg-gray-100 mr-2">{done}/{total} ท่าน</span>
-                            {row.average_score != null && (
-                              <span className="inline-block px-2 py-0.5 rounded bg-blue-100 text-blue-800 mr-2">เฉลี่ย {row.average_score}</span>
-                            )}
-                            {sub.final_score != null && (
-                              <span className="inline-block px-2 py-0.5 rounded bg-green-100 text-green-800">สุดท้าย {Number(sub.final_score).toFixed(2)}</span>
-                            )}
+                          <div className="text-xs text-gray-700 space-y-1">
+                            <span className="text-base font-semibold text-gray-900">
+                              {finalScore != null ? finalScore.toFixed(2) : '-'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => openScoreModal(sub)}
+                              className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                            >
+                              <ListChecks size={14}/> ดูคะแนน
+                            </button>
                           </div>
                         );
                       })()}
@@ -637,7 +780,7 @@ const LiveContestRoom = () => {
                 ))}
                 {filteredSubmissions.length === 0 && (
                   <TRow>
-                    <TD colSpan={7} className="text-center text-gray-500 py-6">ไม่พบผู้สมัครในสถานะนี้</TD>
+                    <TD colSpan={totalColumns} className="text-center text-gray-500 py-6">ไม่พบผู้สมัครในสถานะนี้</TD>
                   </TRow>
                 )}
               </tbody>
@@ -756,6 +899,65 @@ const LiveContestRoom = () => {
               <button className="px-3 py-1.5 text-sm rounded bg-gray-200" onClick={() => setAiDetailModalOpen(false)}>ปิด</button>
             </div>
           </div>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={scoreModal.open}
+        onRequestClose={closeScoreModal}
+        title={scoreModal.submission ? `คะแนนกรรมการ - ${scoreModal.submission.fish_name}` : 'คะแนนกรรมการ'}
+        maxWidth="max-w-xl"
+      >
+        {scoreModal.submission ? (
+          <div className="space-y-4">
+            <div className="text-sm text-gray-700 space-y-1">
+              <p><strong>เจ้าของ:</strong> {`${scoreModal.submission.owner?.first_name || ''} ${scoreModal.submission.owner?.last_name || ''}`.trim() || '-'}</p>
+              <p><strong>สถานะล่าสุด:</strong> {scoreModal.submission.status}</p>
+              <p><strong>คะแนนสุดท้าย:</strong> {scoreModal.submission.final_score != null ? Number(scoreModal.submission.final_score).toFixed(2) : '-'}</p>
+              {judgeScoresSummary.average != null && (
+                <p><strong>คะแนนเฉลี่ย:</strong> {judgeScoresSummary.average.toFixed(2)}</p>
+              )}
+            </div>
+
+            {scoreModal.error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm p-3">{scoreModal.error}</div>
+            )}
+
+            {scoreModal.scores.length > 0 ? (
+              <Table>
+                <THead>
+                  <TRow>
+                    <TH>กรรมการ</TH>
+                    <TH>สถานะ</TH>
+                    <TH>คะแนน</TH>
+                    <TH>เวลาให้คะแนน</TH>
+                  </TRow>
+                </THead>
+                <tbody>
+                  {scoreModal.scores.map((row) => (
+                    <TRow key={row.id}>
+                      <TD className="text-sm text-gray-800">{row.name}</TD>
+                      <TD className="text-sm text-gray-600">{row.status === 'evaluated' ? 'ประเมินแล้ว' : 'รอดำเนินการ'}</TD>
+                      <TD className="text-sm font-semibold text-gray-800">{row.score != null ? row.score.toFixed(2) : '-'}</TD>
+                      <TD className="text-sm text-gray-500">{formatDateTime(row.evaluatedAt)}</TD>
+                    </TRow>
+                  ))}
+                </tbody>
+              </Table>
+            ) : (!scoreModal.loading && !scoreModal.error) ? (
+              <p className="text-sm text-gray-500 text-center">ยังไม่มีการให้คะแนนจากกรรมการ</p>
+            ) : null}
+
+            {scoreModal.loading && (
+              <div className="flex justify-center py-3"><LoaderCircle className="animate-spin text-purple-500" size={24}/></div>
+            )}
+
+            <div className="flex justify-end">
+              <button onClick={closeScoreModal} className="px-4 py-2 text-sm bg-gray-200 rounded-lg">ปิด</button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 text-center">ยังไม่มีข้อมูลการเลือก</p>
         )}
       </Modal>
 

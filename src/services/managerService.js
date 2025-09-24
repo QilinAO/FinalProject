@@ -1,5 +1,5 @@
 // D:\ProJectFinal\Lasts\my-project\src\services\managerService.js
-import apiService from './api';
+import apiService, { ApiHttpError } from './api';
 
 const unwrap = (res, fallbackMessage) => {
   if (res && typeof res === 'object' && 'success' in res) {
@@ -30,6 +30,33 @@ export async function createContestOrNews(formData) {
 export async function getMyContests() {
   const res = await apiService.get('/manager/contests');
   return unwrap(res, 'โหลดรายการกิจกรรมล้มเหลว');
+}
+
+export async function getContestDetail(contestId, { isContest = true } = {}) {
+  if (!contestId) throw new Error('จำเป็นต้องระบุรหัสกิจกรรม');
+
+  if (isContest) {
+    try {
+      const res = await apiService.get(`/manager/contests/${contestId}`);
+      return unwrap(res, 'โหลดรายละเอียดกิจกรรมล้มเหลว');
+    } catch (error) {
+      if (!(error instanceof ApiHttpError && error.status === 404)) {
+        throw error;
+      }
+      // หาก 404 ให้ fallback ไปยัง public endpoint ด้านล่าง
+    }
+  }
+
+  const fallback = await apiService.get(`/public/content/${contestId}`);
+  if (fallback && typeof fallback === 'object') {
+    if ('success' in fallback) {
+      return unwrap(fallback, 'โหลดรายละเอียดกิจกรรมล้มเหลว');
+    }
+    if ('data' in fallback) {
+      return fallback.data;
+    }
+  }
+  return fallback;
 }
 
 export async function updateMyContest(contestId, data) {
@@ -97,6 +124,44 @@ export async function removeJudgeFromContest(contestId, judgeId) {
   return unwrap(res, 'ปลดกรรมการล้มเหลว');
 }
 
+export async function notifyJudgeRemoval(contestId, judgeId, options = {}) {
+  if (!contestId || !judgeId) return null;
+
+  const {
+    contestName = '',
+    judgeName = '',
+    linkTo = '/expert/dashboard',
+    message,
+    meta = {},
+  } = options;
+
+  const baseMessage = message || `คุณถูกถอดจากคณะกรรมการของการประกวด${contestName ? ` "${contestName}"` : ''}`;
+  const payload = {
+    user_id: judgeId,
+    contest_id: contestId,
+    type: 'judge_removed',
+    message: baseMessage,
+    link_to: linkTo,
+    meta: { contest_name: contestName, judge_name: judgeName, ...meta },
+  };
+
+  try {
+    const res = await apiService.post('/manager/notifications', payload);
+    return unwrap(res, 'ส่งการแจ้งเตือนไม่สำเร็จ');
+  } catch (error) {
+    if (error instanceof ApiHttpError && error.status === 404) {
+      try {
+        const fallbackRes = await apiService.post('/notifications', payload);
+        if (fallbackRes?.success) return fallbackRes.data ?? true;
+        return fallbackRes;
+      } catch (fallbackError) {
+        throw fallbackError;
+      }
+    }
+    throw error;
+  }
+}
+
 /* ===== History & Results ===== */
 export async function getContestHistory() {
   const res = await apiService.get('/manager/history');
@@ -139,6 +204,7 @@ export default {
   getManagerProfileDashboard,
   createContestOrNews,
   getMyContests,
+  getContestDetail,
   updateMyContest,
   deleteMyContest,
   getContestSubmissions,
@@ -150,6 +216,7 @@ export default {
   getExpertList,
   assignJudgeToContest,
   removeJudgeFromContest,
+  notifyJudgeRemoval,
   getContestHistory,
   getAllResults,
   getScoresForSubmission,

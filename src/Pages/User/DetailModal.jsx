@@ -85,6 +85,17 @@ const DetailModal = ({ data = {}, onClose, type }) => {
     (rawType && (getBettaTypeLabel(rawType.toLowerCase()) || rawType)) ||
     "ไม่มีข้อมูล";
 
+  const submissionStatus = data?.status || data?.submission_status || "-";
+  const normalizedFinal =
+    data?.final_score !== undefined && data?.final_score !== null
+      ? Number(data.final_score)
+      : data?.score !== undefined && data?.score !== null
+      ? Number(data.score)
+      : NaN;
+  const finalScoreValue = Number.isFinite(normalizedFinal) ? normalizedFinal : null;
+  const rejectReason = data?.reject_reason || null;
+  const judgeScores = Array.isArray(data?.raw_assignments) ? data.raw_assignments : [];
+
   // อายุ
   const ageLabel =
     typeof data?.fish_age_months === "number" ||
@@ -232,10 +243,58 @@ const DetailModal = ({ data = {}, onClose, type }) => {
             {!isQualityEvaluation && (
               <div>
                 <h3 className="text-xl font-medium text-purple-600 mb-2">ผลการแข่งขัน</h3>
-                {data?.rank ? (
-                  <p className="text-green-700 font-bold">อันดับที่ {data.rank}</p>
-                ) : (
-                  <p className="text-gray-500">ยังไม่มีผลการจัดอันดับ</p>
+                <ul className="list-disc list-inside text-gray-700 space-y-1 pl-2">
+                  <li>
+                    <strong>สถานะ:</strong> {submissionStatus || "-"}
+                  </li>
+                  <li>
+                    <strong>คะแนนสุดท้าย:</strong> {finalScoreValue != null ? finalScoreValue.toFixed(2) : "-"}
+                  </li>
+                  {data?.contest_name && (
+                    <li>
+                      <strong>ชื่อการประกวด:</strong> {data.contest_name}
+                    </li>
+                  )}
+                  {data?.rank && (
+                    <li className="text-green-700 font-semibold">อันดับที่ {data.rank}</li>
+                  )}
+                </ul>
+
+                {rejectReason && (
+                  <div className="mt-3 p-3 rounded border border-red-200 bg-red-50 text-red-700 text-sm whitespace-pre-line">
+                    <strong>เหตุผลที่ถูกปฏิเสธ:</strong>
+                    <p className="mt-1">{rejectReason}</p>
+                  </div>
+                )}
+
+                {judgeScores.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-lg font-medium text-purple-600 mb-2">คะแนนจากกรรมการ</h4>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-sm text-left border border-purple-100">
+                        <thead className="bg-purple-50">
+                          <tr>
+                            <th className="px-3 py-2 font-semibold text-purple-700">กรรมการ</th>
+                            <th className="px-3 py-2 font-semibold text-purple-700">สถานะ</th>
+                            <th className="px-3 py-2 font-semibold text-purple-700">คะแนน</th>
+                            <th className="px-3 py-2 font-semibold text-purple-700">เวลาให้คะแนน</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {judgeScores.map((row, idx) => (
+                            <tr key={idx} className="border-t border-purple-100">
+                              <td className="px-3 py-2 text-gray-700">{row.evaluator_name || "กรรมการ"}</td>
+                              <td className="px-3 py-2 text-gray-600">{row.status || '-'}</td>
+                              <td className="px-3 py-2 text-gray-900 font-medium">{typeof row.total_score === "number" ? row.total_score.toFixed(2) : '-'}</td>
+                              <td className="px-3 py-2 text-gray-500">
+                                {row.evaluated_at ? new Date(row.evaluated_at).toLocaleString("th-TH") : '-'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

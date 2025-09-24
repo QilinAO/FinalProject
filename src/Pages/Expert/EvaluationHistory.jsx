@@ -11,36 +11,64 @@ import LoadingSpinner from '../../ui/LoadingSpinner';
 
 // Component ย่อยสำหรับแสดงตารางข้อมูล
 const HistoryTable = ({ data, type }) => {
-    if (!data || data.length === 0) {
-        return <EmptyState icon={<Frown size={48} className="mx-auto text-gray-400"/>} title="ไม่พบประวัติในหมวดนี้" subtitle="ลองเปลี่ยนหมวดหรือกลับมาภายหลัง"/>;
-    }
-
-    const isQuality = type === 'quality';
-
+  if (!Array.isArray(data) || data.length === 0) {
     return (
-        <Table>
-          <THead>
-            <TRow>
-              <TH>{isQuality ? 'ชื่อปลา' : 'ชื่อการแข่งขัน'}</TH>
-              <TH>ประเภท</TH>
-              {isQuality && <TH>เจ้าของ</TH>}
-              <TH>วันที่เสร็จสิ้น</TH>
-              {isQuality && <TH>คะแนน</TH>}
-            </TRow>
-          </THead>
-          <tbody>
-            {data.map(item => (
-              <TRow key={item.id}>
-                <TD className="font-medium text-gray-800">{isQuality ? item.fish_name : item.name}</TD>
-                <TD className="text-gray-600">{isQuality ? item.fish_type : item.type}</TD>
-                {isQuality && <TD className="text-gray-600">{item.owner_name}</TD>}
-                <TD className="text-gray-600">{new Date(isQuality ? item.evaluated_at : item.date).toLocaleDateString('th-TH')}</TD>
-                {isQuality && <TD className="font-bold text-teal-600">{item.total_score}</TD>}
-              </TRow>
-            ))}
-          </tbody>
-        </Table>
+      <EmptyState
+        icon={<Frown size={48} className="mx-auto text-gray-400" />}
+        title="ไม่พบประวัติในหมวดนี้"
+        subtitle="ลองเปลี่ยนหมวดหรือกลับมาภายหลัง"
+      />
     );
+  }
+
+  const isQuality = type === 'quality';
+
+  const formatDate = (value) => {
+    if (!value) return '-';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('th-TH');
+  };
+
+  const formatScore = (score, shouldHide = false) => {
+    if (shouldHide) return '-';
+    if (score === null || score === undefined) return '-';
+    const num = Number(score);
+    return Number.isFinite(num) ? num.toFixed(2) : '-';
+  };
+
+  return (
+    <Table>
+      <THead>
+        <TRow>
+          <TH>{isQuality ? 'ชื่อปลา' : 'ชื่อการแข่งขัน'}</TH>
+          <TH>{isQuality ? 'เจ้าของ' : 'ชื่อปลาที่ให้คะแนน'}</TH>
+          <TH>ประเภท</TH>
+          <TH>คะแนนรวม</TH>
+          <TH>วันที่เสร็จสิ้น</TH>
+        </TRow>
+      </THead>
+      <tbody>
+        {data.map((item) => (
+          <TRow key={item.id}>
+            <TD className="font-medium text-gray-800">
+              {isQuality ? item.fish_name : item.name}
+            </TD>
+            <TD className="text-gray-600">
+              {isQuality ? item.owner_name || '-' : item.fish_name || '-'}
+            </TD>
+            <TD className="text-gray-600">
+              {isQuality ? (item.fish_type || '-') : (item.type || '-')}
+            </TD>
+            <TD className="font-semibold text-teal-600">
+              {formatScore(item.total_score, isQuality && item.status !== 'evaluated')}
+            </TD>
+            <TD className="text-gray-600">{formatDate(isQuality ? item.evaluated_at : item.date)}</TD>
+          </TRow>
+        ))}
+      </tbody>
+    </Table>
+  );
 };
 
 // Component หลักของหน้า
@@ -59,9 +87,10 @@ const ExpertHistory = () => {
         setLoading(true);
         getExpertHistory(type)
             .then(res => {
-                setHistoryData(res.data || []);
+                const items = Array.isArray(res?.data) ? res.data : [];
+                setHistoryData(items);
             })
-            .catch(err => toast.error("ไม่สามารถโหลดประวัติได้"))
+            .catch(() => toast.error("ไม่สามารถโหลดประวัติได้"))
             .finally(() => setLoading(false));
     }, []);
 

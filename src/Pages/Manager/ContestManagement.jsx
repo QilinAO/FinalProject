@@ -2,9 +2,30 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { ImagePlus, Trash2, LoaderCircle } from "lucide-react";
 import { toast } from "react-toastify";
+import ReactQuill from "react-quill";
+import DatePicker, { registerLocale } from "react-datepicker";
+import "react-quill/dist/quill.snow.css";
+import "react-datepicker/dist/react-datepicker.css";
+import "../../styles/richTextOverrides.css";
+import { th } from "date-fns/locale";
 
 import ManagerMenu from "../../Component/ManagerMenu";
 import { createContestOrNews, getExpertList } from "../../services/managerService";
+
+registerLocale("th", th);
+
+const toIsoDateString = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offsetMs).toISOString().split("T")[0];
+};
+
+const fromIsoDateString = (value) => {
+  if (!value) return null;
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return null;
+  return new Date(Number(year), Number(month) - 1, Number(day));
+};
 
 const BETTA_SUBCATEGORIES = [
   { id: "A", label: "ปลากัดพื้นบ้านภาคกลางและเหนือ" },
@@ -15,6 +36,26 @@ const BETTA_SUBCATEGORIES = [
   { id: "F", label: "ปลากัดพื้นบ้านอีสานหางลาย" },
   { id: "G", label: "ปลากัดป่าพัฒนาสีสัน(รวมทุกประเภท)" },
   { id: "H", label: "ปลากัดป่ารุ่นจิ๋ว(รวมทุกประเภท ความยาวไม่เกิน 1.2 นิ้ว)" },
+];
+
+const RICH_TEXT_MODULES = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ["bold", "italic", "underline"],
+    [{ list: "ordered" }, { list: "bullet" }],
+    ["link"],
+    ["clean"],
+  ],
+};
+
+const RICH_TEXT_FORMATS = [
+  "header",
+  "bold",
+  "italic",
+  "underline",
+  "list",
+  "bullet",
+  "link",
 ];
 
 const ContestManagement = () => {
@@ -34,16 +75,17 @@ const ContestManagement = () => {
     posterPreview: null,
   };
   const [formData, setFormData] = useState(initialFormState);
-  // คำนวณวันที่วันนี้ในรูปแบบ YYYY-MM-DD เพื่อใช้เป็น min ของวันที่
-  const todayStr = useMemo(() => {
+  const todayDate = useMemo(() => {
     const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
+    d.setHours(0, 0, 0, 0);
+    return d;
   }, []);
+
+  // คำนวณวันที่วันนี้ในรูปแบบ YYYY-MM-DD เพื่อใช้เป็น min ของวันที่และ validation
+  const todayStr = useMemo(() => toIsoDateString(todayDate), [todayDate]);
   const [experts, setExperts] = useState([]);
   const [loadingExperts, setLoadingExperts] = useState(true);
+  const [judgeSearch, setJudgeSearch] = useState("");
 
   useEffect(() => {
     const fetchExperts = async () => {
@@ -74,6 +116,17 @@ const ContestManagement = () => {
       expert.specialities.some(speciality => selectedLabels.includes(speciality))
     );
   }, [experts, formData.allowed_subcategories]);
+
+  const displayedExperts = useMemo(() => {
+    const query = judgeSearch.trim().toLowerCase();
+    if (!query) return filteredExperts;
+
+    return filteredExperts.filter(expert => {
+      const fullName = `${expert.first_name || ''} ${expert.last_name || ''}`.trim().toLowerCase();
+      const fallback = (expert.username || expert.email || '').toLowerCase();
+      return fullName.includes(query) || fallback.includes(query);
+    });
+  }, [filteredExperts, judgeSearch]);
 
   useEffect(() => {
     const filteredExpertIds = new Set(filteredExperts.map(e => e.id));
@@ -109,12 +162,29 @@ const ContestManagement = () => {
     return { ...prev, posterFile: null, posterPreview: null };
   });
 
-  const handleSubcategoryChange = (subcatId, isChecked) => {
+  const handleRichTextChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleDateChange = (field, dateValue) => {
     setFormData(prev => {
-      const current = prev.allowed_subcategories;
-      const next = isChecked ? [...current, subcatId] : current.filter(id => id !== subcatId);
-      return { ...prev, allowed_subcategories: next };
+      const isoValue = dateValue ? toIsoDateString(dateValue) : "";
+      const next = { ...prev, [field]: isoValue };
+      if (field === "start_date" && isoValue && next.end_date && next.end_date < isoValue) {
+        next.end_date = isoValue;
+      }
+      return next;
     });
+  };
+
+  const handleSubcategoryChange = (subcatId, isChecked) => {
+    setFormData(prev => ({
+      ...prev,
+      allowed_subcategories: isChecked ? [subcatId] : [],
+    }));
   };
 
   const handleJudgeSelection = (event, expertId, isChecked) => {
@@ -176,6 +246,9 @@ const ContestManagement = () => {
     }
   };
 
+  const startDateSelected = useMemo(() => fromIsoDateString(formData.start_date), [formData.start_date]);
+  const endDateSelected = useMemo(() => fromIsoDateString(formData.end_date), [formData.end_date]);
+
   return (
     <div className="bg-gray-100 min-h-screen">
       <ManagerMenu />
@@ -204,7 +277,15 @@ const ContestManagement = () => {
 
           <div>
             <label className="block text-gray-700 font-semibold mb-2">4. รายละเอียดเต็ม:</label>
-            <textarea name="full_description" value={formData.full_description} onChange={handleInputChange} className="w-full p-3 border rounded-md" rows="6" />
+            <ReactQuill
+              theme="snow"
+              value={formData.full_description}
+              onChange={value => handleRichTextChange("full_description", value)}
+              modules={RICH_TEXT_MODULES}
+              formats={RICH_TEXT_FORMATS}
+              className="rich-text-editor border border-gray-300 rounded-md"
+            />
+            <p className="text-xs text-gray-500 mt-2">รองรับตัวหนา ตัวเอียง หัวข้อ รายการ และลิงก์</p>
           </div>
 
           {formData.category === "การประกวด" && (
@@ -222,16 +303,36 @@ const ContestManagement = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">6. วันที่เริ่มรับสมัคร:</label>
-                  <input type="date" name="start_date" value={formData.start_date} onChange={handleInputChange} min={todayStr} className="w-full p-3 border rounded-md" required />
+                  <DatePicker
+                    selected={startDateSelected}
+                    onChange={(date) => handleDateChange("start_date", date)}
+                    locale="th"
+                    dateFormat="dd MMMM yyyy"
+                    minDate={todayDate}
+                    placeholderText="เลือกวันที่เริ่มรับสมัคร"
+                    className="w-full p-3 border rounded-md"
+                    calendarClassName="text-gray-700"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">7. วันที่สิ้นสุดการประกวด:</label>
-                  <input type="date" name="end_date" value={formData.end_date} onChange={handleInputChange} min={formData.start_date || todayStr} className="w-full p-3 border rounded-md" required />
+                  <DatePicker
+                    selected={endDateSelected}
+                    onChange={(date) => handleDateChange("end_date", date)}
+                    locale="th"
+                    dateFormat="dd MMMM yyyy"
+                    minDate={startDateSelected || todayDate}
+                    placeholderText="เลือกวันที่สิ้นสุด"
+                    className="w-full p-3 border rounded-md"
+                    calendarClassName="text-gray-700"
+                    required
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-gray-700 font-semibold mb-2">8. ประเภทปลากัดที่เปิดรับ:</label>
+                <label className="block text-gray-700 font-semibold mb-2">8. ประเภทปลากัดที่เปิดรับ (เลือกได้ 1 ประเภท):</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 border rounded-md bg-gray-50 max-h-60 overflow-y-auto">
                   {BETTA_SUBCATEGORIES.map((sub) => (
                     <label key={sub.id} className="flex items-center space-x-2">
@@ -248,26 +349,37 @@ const ContestManagement = () => {
 
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">9. เลือกคณะกรรมการ (สูงสุด 3 คน):</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-3 border rounded-md bg-gray-50 max-h-72 overflow-y-auto">
-                  {loadingExperts ? (
-                    <p className="col-span-full text-center">กำลังโหลดผู้เชี่ยวชาญ...</p>
-                  ) : (
-                    filteredExperts.map(expert => (
-                      <label key={expert.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-200 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="h-5 w-5 rounded"
-                          checked={formData.judge_ids.includes(expert.id)}
-                          onChange={e => handleJudgeSelection(e, expert.id, e.target.checked)}
-                          disabled={formData.judge_ids.length >= 3 && !formData.judge_ids.includes(expert.id)}
-                        />
-                        <div>
-                          <span className="font-medium text-gray-800">{expert.first_name} {expert.last_name}</span>
-                          <span className="block text-xs text-gray-500">{expert.specialities?.join(', ') || 'ทั่วไป'}</span>
-                        </div>
-                      </label>
-                    ))
-                  )}
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={judgeSearch}
+                    onChange={(e) => setJudgeSearch(e.target.value)}
+                    placeholder="ค้นหาชื่อกรรมการ..."
+                    className="w-full p-2 border rounded-md"
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-3 border rounded-md bg-gray-50 max-h-72 overflow-y-auto">
+                    {loadingExperts ? (
+                      <p className="col-span-full text-center">กำลังโหลดผู้เชี่ยวชาญ...</p>
+                    ) : displayedExperts.length > 0 ? (
+                      displayedExperts.map(expert => (
+                        <label key={expert.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-200 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5 rounded"
+                            checked={formData.judge_ids.includes(expert.id)}
+                            onChange={e => handleJudgeSelection(e, expert.id, e.target.checked)}
+                            disabled={formData.judge_ids.length >= 3 && !formData.judge_ids.includes(expert.id)}
+                          />
+                          <div>
+                            <span className="font-medium text-gray-800">{expert.first_name} {expert.last_name}</span>
+                            <span className="block text-xs text-gray-500">{expert.specialities?.join(', ') || 'ทั่วไป'}</span>
+                          </div>
+                        </label>
+                      ))
+                    ) : (
+                      <p className="col-span-full text-center text-gray-500">ไม่พบกรรมการที่ตรงกับการค้นหา</p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

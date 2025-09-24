@@ -130,9 +130,11 @@ export const submitCompetitionScore = (submissionId, scoresData) => {
  * (เรียกใช้ API: GET /api/experts/scoring-schema/:bettaType)
  * @param {string} bettaType - ชื่อประเภทของปลากัด
  */
-export const getScoringSchema = (bettaType) => {
-  // ใช้ encodeURIComponent เพื่อให้แน่ใจว่าชื่อภาษาไทยถูกส่งไปใน URL ได้อย่างถูกต้อง
-  return apiService.get(`/experts/scoring-schema/${encodeURIComponent(bettaType)}`);
+export const getScoringSchema = (bettaType, options = {}) => {
+  const { contestId = null } = options;
+  const query = { betta_type: bettaType };
+  if (contestId) query.contest_id = contestId;
+  return apiService.get('/experts/scoring-schema', { query });
 };
 
 

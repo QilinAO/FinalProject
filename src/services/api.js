@@ -1,6 +1,18 @@
 // D:\ProJectFinal\Lasts\my-project\src\services\api.js
 import { getAccessToken, signoutUser } from './authService';
 
+// --- Global loading event helpers (hourglass overlay) ---
+function pushGlobalLoading() {
+  if (typeof window === 'undefined') return;
+  window.__apiLoadingCount = (window.__apiLoadingCount || 0) + 1;
+  try { window.dispatchEvent(new CustomEvent('api:loading', { detail: { count: window.__apiLoadingCount } })); } catch {}
+}
+function popGlobalLoading() {
+  if (typeof window === 'undefined') return;
+  window.__apiLoadingCount = Math.max(0, (window.__apiLoadingCount || 0) - 1);
+  try { window.dispatchEvent(new CustomEvent('api:loading', { detail: { count: window.__apiLoadingCount } })); } catch {}
+}
+
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:5000/api' : '/api')
 ).replace(/\/+$/, '');
@@ -80,6 +92,8 @@ class ApiService {
   }
 
   async request(method, endpoint, body = null, options = {}) {
+    // แจ้งเริ่มโหลดสำหรับ overlay ระดับแอป
+    pushGlobalLoading();
     const {
       headers: extraHeaders,
       query,
@@ -105,36 +119,39 @@ class ApiService {
 
     let res;
     try {
-      res = await fetch(url, fetchOptions);
-    } catch (err) {
-      cleanup();
-      const isAbort = err?.name === 'AbortError';
-      throw new ApiHttpError(isAbort ? 'การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง' : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 0, { cause: err });
-    }
-
-    cleanup();
-
-    if (res.status === 204) return null;
-
-    const data = await parseBody(res, wantsBlob);
-
-    if (!res.ok) {
-      // 401: หมดอายุ/ไม่ได้รับอนุญาต -> ออกจากระบบและพาไปหน้าเข้าสู่ระบบ
-      if (res.status === 401) {
-        try { this._onUnauthorized?.(); } catch {}
-        try { await signoutUser?.(); } catch {}
-        try { if (typeof window !== 'undefined') window.location.href = '/login'; } catch {}
-        throw new ApiHttpError('เซสชันหมดอายุหรือไม่มีสิทธิ์เข้าถึง กรุณาเข้าสู่ระบบใหม่', res.status, data);
+      try {
+        res = await fetch(url, fetchOptions);
+      } catch (err) {
+        cleanup();
+        const isAbort = err?.name === 'AbortError';
+        throw new ApiHttpError(isAbort ? 'การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง' : 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 0, { cause: err });
       }
-      // 403: ห้ามเข้าถึง (ไม่ต้องล็อกเอาท์อัตโนมัติ ให้ผู้ใช้เห็นข้อความเตือนในหน้าเดิม)
-      const msg =
-        (data && typeof data === 'object' && (data.error || data.message)) ||
-        (typeof data === 'string' ? data : null) ||
-        `HTTP ${res.status} ${res.statusText}`;
-      throw new ApiHttpError(msg, res.status, data);
-    }
 
-    return data;
+      cleanup();
+
+      if (res.status === 204) return null;
+
+      const data = await parseBody(res, wantsBlob);
+
+      if (!res.ok) {
+        // 401: หมดอายุ/ไม่ได้รับอนุญาต -> แจ้ง listener ให้จัดการต่อ (เช่น พยายามกู้คืนเซสชัน)
+        if (res.status === 401) {
+          try { this._onUnauthorized?.({ status: res.status, data }); } catch {}
+          throw new ApiHttpError('เซสชันหมดอายุหรือไม่มีสิทธิ์เข้าถึง กรุณาเข้าสู่ระบบใหม่', res.status, data);
+        }
+        // 403: ห้ามเข้าถึง (ไม่ต้องล็อกเอาท์อัตโนมัติ ให้ผู้ใช้เห็นข้อความเตือนในหน้าเดิม)
+        const msg =
+          (data && typeof data === 'object' && (data.error || data.message)) ||
+          (typeof data === 'string' ? data : null) ||
+          `HTTP ${res.status} ${res.statusText}`;
+        throw new ApiHttpError(msg, res.status, data);
+      }
+
+      return data;
+    } finally {
+      // แจ้งจบโหลดสำหรับ overlay ระดับแอป (สำคัญ: ทำเสมอทั้งสำเร็จ/ล้มเหลว)
+      popGlobalLoading();
+    }
   }
 
   get(endpoint, options = {}) { return this.request('GET', endpoint, null, options); }

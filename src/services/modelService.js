@@ -31,7 +31,7 @@ class ModelService {
 
       const response = await apiService.post('/model/analyze-single', formData, {
         // อย่าตั้ง Content-Type เอง ให้ browser กำหนด boundary อัตโนมัติ
-        timeoutMs: 30000 // 30 วินาที
+        timeoutMs: 60000 // 60 วินาที
       });
 
       return response.data;
@@ -43,7 +43,7 @@ class ModelService {
         toast.error('ข้อมูลรูปภาพไม่ถูกต้อง');
       } else if (error.status === 413) {
         toast.error('รูปภาพมีขนาดใหญ่เกินไป');
-      } else if (error.message?.includes('timeout')) {
+      } else if (error.status === 0 || /timeout|หมดเวลา/i.test(error.message || '')) {
         toast.error('การวิเคราะห์ใช้เวลานานเกินไป กรุณาลองใหม่');
       } else {
         toast.error('ไม่สามารถวิเคราะห์รูปภาพได้ในขณะนี้');
@@ -79,7 +79,7 @@ class ModelService {
       }
 
       const response = await apiService.post('/model/analyze-batch', formData, {
-        timeoutMs: 45000 // 45 วินาที สำหรับหลายรูป
+        timeoutMs: 90000 // 90 วินาที สำหรับหลายรูป
       });
 
       return response.data;
@@ -90,7 +90,7 @@ class ModelService {
         toast.error('ข้อมูลรูปภาพไม่ถูกต้อง');
       } else if (error.status === 413) {
         toast.error('รูปภาพมีขนาดใหญ่เกินไป');
-      } else if (error.message?.includes('timeout')) {
+      } else if (error.status === 0 || /timeout|หมดเวลา/i.test(error.message || '')) {
         toast.error('การวิเคราะห์ใช้เวลานานเกินไป กรุณาลองใหม่');
       } else {
         toast.error('ไม่สามารถวิเคราะห์รูปภาพได้ในขณะนี้');
@@ -175,17 +175,14 @@ class ModelService {
    * @returns {Promise<Object>} ผลการวิเคราะห์
    */
   async analyzeForEvaluation(formData, images) {
+    // บังคับให้โหมดประเมินคุณภาพ (evaluate) วิเคราะห์เฉพาะรูปแรกเสมอ
     const metadata = {
-      betta_type: formData.betta_type,
-      betta_age_months: formData.betta_age_months ? parseInt(formData.betta_age_months) : null,
+      betta_type: formData?.betta_type,
+      betta_age_months: formData?.betta_age_months ? parseInt(formData.betta_age_months) : null,
       analysis_type: 'quality'
     };
-
-    if (images.length === 1) {
-      return await this.analyzeSingleImage(images[0], metadata);
-    } else {
-      return await this.analyzeBatchImages(images, metadata);
-    }
+    if (!images || images.length === 0) return null;
+    return await this.analyzeSingleImage(images[0], metadata);
   }
 
   /**

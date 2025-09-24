@@ -4,7 +4,13 @@ import React, { useState, useEffect } from "react";
 import ManagerMenu from "../../Component/ManagerMenu";
 import { toast } from "react-toastify";
 import { LoaderCircle, Search, Users, Calendar } from "lucide-react";
-import { getMyContests, getExpertList, assignJudgeToContest } from "../../services/managerService";
+import {
+  getMyContests,
+  getExpertList,
+  assignJudgeToContest,
+  removeJudgeFromContest,
+  notifyJudgeRemoval,
+} from "../../services/managerService";
 
 const MAX_JUDGES = 3; // โควตากรรมการสูงสุด
 
@@ -198,18 +204,27 @@ const AssignJudges = () => {
   const handleRemoveJudge = async (contestId, judgeId, nameLabel) => {
     if (!contestId || !judgeId) return;
     if (!window.confirm(`ต้องการลบ ${nameLabel} ออกจากคณะกรรมการหรือไม่?`)) return;
+
+    const contestName = selectedContest?.name || '';
     try {
-      const resp = await fetch(`/api/manager/contests/${contestId}/judges/${judgeId}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-      });
-      if (!resp.ok) throw new Error('ลบกรรมการไม่สำเร็จ');
+      await removeJudgeFromContest(contestId, judgeId);
       toast.success('ลบกรรมการสำเร็จ');
+
+      try {
+        await notifyJudgeRemoval(contestId, judgeId, {
+          contestName,
+          judgeName: nameLabel,
+          linkTo: '/expert/dashboard',
+        });
+        toast.info('ได้ส่งการแจ้งเตือนให้ผู้เชี่ยวชาญแล้ว');
+      } catch (notifyError) {
+        toast.warn('ลบสำเร็จ แต่ส่งการแจ้งเตือนล้มเหลว');
+      }
+
       await fetchInitialData();
       setSelectedContestId(String(contestId));
-    } catch (e) {
-      toast.error(e.message || 'เกิดข้อผิดพลาดในการลบกรรมการ');
+    } catch (error) {
+      toast.error(error?.message || 'เกิดข้อผิดพลาดในการลบกรรมการ');
     }
   };
 

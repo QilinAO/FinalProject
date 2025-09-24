@@ -124,7 +124,8 @@ const ScoringFormModal = ({ isOpen, onRequestClose, submission, onSubmit }) => {
     if (isOpen && submission?.fish_type) {
       setLoadingSchema(true);
       setSchemaType(submission.fish_type);
-      getScoringSchema(submission.fish_type)
+      const contestId = submission?.contest_id || submission?.contest?.id || null;
+      getScoringSchema(submission.fish_type, { contestId })
         .then(res => setScoreCriteria(res.data || []))
         .catch(() => {
           toast.error("ไม่สามารถโหลดเกณฑ์การให้คะแนนได้");

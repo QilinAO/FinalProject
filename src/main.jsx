@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 
 // นำเข้า Component หลักของแอปพลิเคชันของเรา ซึ่งก็คือไฟล์ App.jsx
 import App from './App'; 
+import GlobalLoader from './ui/GlobalLoader';
 
 // นำเข้า AuthProvider จาก AuthContext ที่เราสร้างขึ้น
 // นี่คือ Component ที่จะทำหน้าที่จัดการข้อมูลและสถานะการ Login ทั้งหมด
@@ -58,6 +59,7 @@ root.render(
     */}
     <AuthProvider>
       <App />
+      <GlobalLoader />
     </AuthProvider>
     
   </React.StrictMode>

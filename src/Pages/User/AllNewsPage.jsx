@@ -270,25 +270,23 @@ const AllNewsPage = () => {
                   {currentNews.map((news, index) => (
                     <article
                       key={news.id}
-                      className="group relative bg-white rounded-3xl overflow-hidden shadow-soft hover:shadow-large transition-all duration-500 hover:-translate-y-2 border border-neutral-200/50 animate-stagger-in"
-                      style={{
-                        animationDelay: `${index * 0.1}s`
-                      }}
+                      className="group relative bg-white rounded-3xl overflow-hidden shadow-soft hover:shadow-large transition-all duration-300 hover:-translate-y-1 border border-neutral-200/60 animate-stagger-in"
+                      style={{ animationDelay: `${index * 0.1}s` }}
                     >
-                      <Link to={`/news/${news.id}`} className="block">
+                      <Link to={`/news/${news.id}`} className="flex flex-col h-full">
                         {/* รูปภาพ */}
                         <div className="relative overflow-hidden h-48 bg-gradient-to-br from-primary-100 to-secondary-100">
                           <img
                             src={news.poster_url}
                             alt={news.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             loading="lazy"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                          
+
                           {/* Badge หมวดหมู่ */}
                           <div className="absolute top-4 right-4">
-                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/90 backdrop-blur-sm text-primary-700 text-xs font-semibold rounded-full shadow-soft">
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/95 backdrop-blur-sm text-primary-700 text-xs font-semibold rounded-full shadow-soft">
                               <FaTag size={10} />
                               {news.category}
                             </span>
@@ -296,22 +294,24 @@ const AllNewsPage = () => {
                         </div>
 
                         {/* เนื้อหา */}
-                        <div className="p-6">
+                        <div className="p-6 flex flex-col flex-1">
                           <h3 className="text-lg font-bold text-heading mb-3 group-hover:text-primary-700 transition-colors duration-300 line-clamp-2">
                             {news.name}
                           </h3>
-                          
-                          <p className="text-body text-sm leading-relaxed line-clamp-3 mb-4">
-                            {news.short_description}
-                          </p>
-                          
-                          {/* วันที่และการอ่าน */}
-                          <div className="flex items-center justify-between text-xs text-muted">
+
+                          {news.short_description && (
+                            <p className="text-body text-sm leading-relaxed line-clamp-3 mb-4 flex-1">
+                              {news.short_description}
+                            </p>
+                          )}
+
+                          {/* วันที่ */}
+                          <div className="mt-auto flex items-center justify-between text-xs text-muted">
                             <time className="flex items-center gap-1">
-                              📅 {new Date(news.created_at).toLocaleDateString('th-TH', { 
-                                year: 'numeric', 
-                                month: 'short', 
-                                day: 'numeric' 
+                              📅 {new Date(news.created_at).toLocaleDateString('th-TH', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
                               })}
                             </time>
                             <span className="text-primary-500 font-medium group-hover:text-primary-700 transition-colors">

@@ -7,7 +7,7 @@ import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { LoaderCircle } from "lucide-react";
+import { Hourglass } from "lucide-react";
 
 import ProtectedRoute from "./Component/ProtectedRoute";
 import useIdleLogout from "./hooks/useIdleLogout";
@@ -30,7 +30,7 @@ import { PublicRoutes, ProtectedUserRoutes, AdminRoutes, ManagerRoutes, ExpertRo
 // --- Loading Fallback Component ---
 const LoadingFallback = () => (
   <div className="min-h-screen w-full flex flex-col items-center justify-center">
-    <LoaderCircle className="animate-spin text-purple-600" size={48} />
+    <Hourglass className="animate-spin text-purple-600" size={48} />
     <p className="mt-4 text-lg text-gray-700">กำลังโหลด...</p>
   </div>
 );

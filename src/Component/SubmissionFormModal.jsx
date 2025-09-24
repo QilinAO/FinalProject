@@ -8,7 +8,7 @@ import Modal from '../ui/Modal';
 import { useForm } from "react-hook-form";
 import { useDropzone } from "react-dropzone";
 import { toast } from "react-toastify";
-import { X, ImagePlus, Video, LoaderCircle } from 'lucide-react';
+import { X, ImagePlus, Video, Hourglass } from 'lucide-react';
 import { submitBettaForCompetition } from "../services/userService";
 import modelService from "../services/modelService";
 import { BETTA_TYPE_MAP_ID, getBettaTypeLabel } from '../utils/bettaTypes';
@@ -33,18 +33,19 @@ const ModalHeader = ({ contestName, onClose }) => (
  */
 const ImageDropzone = ({ getRootProps, getInputProps, images, onRemove }) => (
   <div>
-    <label className="block font-semibold text-gray-700 mb-1">รูปภาพ (สูงสุด 3 รูป):</label>
-    <div {...getRootProps()} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-purple-400 transition">
+    <label className="block font-semibold text-gray-800 mb-2 text-sm">รูปภาพ (สูงสุด 3 รูป)</label>
+    <div {...getRootProps()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/40 transition min-h-[180px] flex flex-col items-center justify-center">
       <input {...getInputProps()} />
-      <ImagePlus size={40} className="mx-auto text-gray-400 mb-2" />
-      <p className="text-gray-600">ลากไฟล์มาวาง หรือ <span className="font-semibold text-purple-600">คลิกเพื่อเลือก</span></p>
+      <ImagePlus size={48} className="mx-auto text-gray-400 mb-3" />
+      <p className="text-gray-700 text-base">ลากไฟล์มาวาง หรือ <span className="font-semibold text-purple-600">คลิกเพื่อเลือก</span></p>
+      <p className="text-gray-400 text-xs mt-1">รองรับ JPG/PNG/WebP • แนะนำความคมชัดชัดเจน</p>
     </div>
     {images.length > 0 && (
-      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 mt-3">
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 mt-4">
         {images.map((file, i) => (
           <div key={i} className="relative group">
-            <img src={file.preview} alt={`preview ${i}`} className="w-full aspect-square object-cover rounded-lg shadow" />
-            <button type="button" onClick={() => onRemove(i)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition">
+            <img src={file.preview} alt={`preview ${i}`} className="w-full aspect-square object-cover rounded-xl shadow" />
+            <button type="button" onClick={() => onRemove(i)} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition">
               <X size={12} />
             </button>
           </div>
@@ -59,15 +60,16 @@ const ImageDropzone = ({ getRootProps, getInputProps, images, onRemove }) => (
  */
 const VideoDropzone = ({ getRootProps, getInputProps, video, onRemove }) => (
   <div>
-    <label className="block font-semibold text-gray-700 mb-1">วิดีโอ (ถ้ามี):</label>
-    <div {...getRootProps()} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-purple-400 transition">
+    <label className="block font-semibold text-gray-800 mb-2 text-sm">วิดีโอ (ถ้ามี)</label>
+    <div {...getRootProps()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50/40 transition min-h-[180px] flex flex-col items-center justify-center">
       <input {...getInputProps()} />
-      <Video size={40} className="mx-auto text-gray-400 mb-2" />
-      <p className="text-gray-600">ลากไฟล์มาวาง หรือ <span className="font-semibold text-purple-600">คลิกเพื่อเลือก</span></p>
+      <Video size={48} className="mx-auto text-gray-400 mb-3" />
+      <p className="text-gray-700 text-base">ลากไฟล์มาวาง หรือ <span className="font-semibold text-purple-600">คลิกเพื่อเลือก</span></p>
+      <p className="text-gray-400 text-xs mt-1">รองรับ MP4/WebM/QuickTime • ไม่บังคับ</p>
     </div>
     {video && (
-      <div className="relative mt-3">
-        <video src={video.preview} controls className="w-full rounded-lg shadow aspect-video" />
+      <div className="relative mt-4">
+        <video src={video.preview} controls className="w-full rounded-xl shadow aspect-video" />
         <button type="button" onClick={onRemove} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg">
           <X size={14} />
         </button>
@@ -84,6 +86,7 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
   const [images, setImages] = useState([]);
   const [video, setVideo] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmAccept, setConfirmAccept] = useState(false);
   const [aiChecking, setAiChecking] = useState(false);
   const [aiNote, setAiNote] = useState(null); // { status: 'match'|'mismatch'|'error', code?: string }
 
@@ -162,6 +165,11 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
     });
   };
 
+  // Reset confirmation when modal opens
+  useEffect(() => {
+    if (isOpen) setConfirmAccept(false);
+  }, [isOpen]);
+
   // Live AI check when images or betta_type changes (debounced)
   const watchedBettaType = watch("betta_type");
   useEffect(() => {
@@ -208,8 +216,9 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
     if (images.length === 0) return toast.error("กรุณาอัปโหลดรูปภาพอย่างน้อย 1 รูป");
     
     setIsSubmitting(true);
+    const deferredAiToasts = [];
     try {
-      // เรียก AI เพื่อตรวจสอบประเภทเบื้องต้น (ไม่บล็อกการส่ง)
+      // เรียก AI เพื่อตรวจสอบประเภทเบื้องต้น (ไม่บล็อกการส่ง) แต่เลื่อน toast ไปหลังบันทึกสำเร็จ
       try {
         const aiResult = await modelService.analyzeForCompetition(formData, images);
         const predictedCode =
@@ -221,22 +230,18 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
           aiResult?.top1?.display_name ||
           aiResult?.data?.final_label?.name || null;
         const isConfident = !!(aiResult?.is_confident);
-        if (!isConfident || !predictedCode) {
-          toast.info('AI ไม่มั่นใจว่าเป็นประเภทไหน ผู้ใช้โปรดเลือกประเภทเอง หรือสามารถส่งเข้าร่วมการประกวดได้');
-        } else {
+        if (isConfident && predictedCode) {
           const predictedUpper = String(predictedCode).toUpperCase();
           const allowed = (contest?.allowed_subcategories || []).map(c => String(c).toUpperCase());
           const nameForShow = getBettaTypeLabel(predictedName || predictedUpper);
           if (allowed.includes(predictedUpper)) {
-            toast.success(`AI ตรวจพบประเภท: ${nameForShow} — ตรงตามเงื่อนไข`);
+            deferredAiToasts.push({ type: 'success', message: `AI ตรวจพบประเภท: ${nameForShow} — ตรงตามเงื่อนไข` });
           } else {
-            toast.warning(`AI ตรวจพบประเภท: ${nameForShow} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้`);
+            deferredAiToasts.push({ type: 'warning', message: `AI ตรวจพบประเภท: ${nameForShow} — ไม่ตรงเงื่อนไข แต่ยังสามารถส่งได้` });
           }
         }
       } catch (e) {
-        // ไม่ขัดขวางการส่ง ถ้า AI ล้มเหลว
-        // แสดงเป็น info เพื่อให้ผู้ใช้ทราบว่า AI ไม่พร้อมใช้งานตอนนี้
-        toast.info("ไม่สามารถใช้ AI ตรวจสอบได้ในขณะนี้ จะส่งข้อมูลต่อไป");
+        // หาก AI ไม่พร้อมใช้งาน ไม่ต้องแจ้งเตือนซ้ำหลังการส่งสำเร็จ
       }
 
       const apiFormData = new FormData();
@@ -269,9 +274,11 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
         // แสดง success message หลังจาก warning
         setTimeout(() => {
           toast.success(`สมัครเข้าร่วม "${contest.name}" สำเร็จ!`);
+          deferredAiToasts.forEach(({ type, message }) => toast[type]?.(message));
         }, 1000);
       } else {
         toast.success(`สมัครเข้าร่วม "${contest.name}" สำเร็จ!`);
+        deferredAiToasts.forEach(({ type, message }) => toast[type]?.(message));
       }
       
       onRequestClose();
@@ -283,24 +290,24 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onRequestClose={onRequestClose} title={contest?.name ? `สมัครเข้าร่วม: ${contest.name}` : 'สมัครเข้าร่วมประกวด'} maxWidth="max-w-3xl">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-h-[75vh] overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <Modal isOpen={isOpen} onRequestClose={onRequestClose} title={contest?.name ? `สมัครเข้าร่วม: ${contest.name}` : 'สมัครเข้าร่วมประกวด'} maxWidth="max-w-5xl">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 max-h-[80vh] overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block font-semibold text-gray-700 mb-1">ชื่อปลากัด:</label>
-              <input {...register("betta_name", { required: "กรุณากรอกชื่อปลากัด" })} className="w-full p-2 border rounded-md mt-1 focus:ring-2 focus:ring-purple-500" />
+              <label className="block font-semibold text-gray-800 mb-2 text-sm">ชื่อปลากัด</label>
+              <input {...register("betta_name", { required: "กรุณากรอกชื่อปลากัด" })} className="w-full h-11 px-3 border rounded-lg mt-1 focus:ring-2 focus:ring-purple-500 text-base" placeholder="เช่น เจ้าฟ้า น้องสปาร์ค ฯลฯ" />
               {errors.betta_name && <span className="text-red-500 text-sm">{errors.betta_name.message}</span>}
             </div>
             <div>
-              <label className="block font-semibold text-gray-700 mb-1">อายุ (เดือน):</label>
-              <input type="number" {...register("betta_age_months")} className="w-full p-2 border rounded-md mt-1 focus:ring-2 focus:ring-purple-500" />
+              <label className="block font-semibold text-gray-800 mb-2 text-sm">อายุ (เดือน)</label>
+              <input type="number" {...register("betta_age_months")} className="w-full h-11 px-3 border rounded-lg mt-1 focus:ring-2 focus:ring-purple-500 text-base" placeholder="เช่น 6" />
             </div>
           </div>
           <div>
-            <label className="block font-semibold text-gray-700 mb-1">ประเภทปลากัด:</label>
+            <label className="block font-semibold text-gray-800 mb-2 text-sm">ประเภทปลากัด</label>
             <select 
-              {...register("betta_type", { required: "กรุณาเลือกประเภท" })} 
-              className="w-full p-2 border rounded-md mt-1 bg-white focus:ring-2 focus:ring-purple-500"
+              {...register("betta_type", { required: "กรุณาเลือกประเภท" })}
+              className="w-full h-11 px-3 border rounded-lg mt-1 bg-white focus:ring-2 focus:ring-purple-500 text-base"
               disabled={allowedSubcategories.length === 1}
             >
               <option value="">-- เลือกประเภท --</option>
@@ -320,13 +327,29 @@ const SubmissionFormModal = ({ isOpen, onRequestClose, contest }) => {
             )}
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <ImageDropzone getRootProps={getRootPropsImages} getInputProps={getInputPropsImages} images={images} onRemove={removeImage} />
             <VideoDropzone getRootProps={getRootPropsVideo} getInputProps={getInputPropsVideo} video={video} onRemove={removeVideo} />
           </div>
 
-          <button type="submit" disabled={isSubmitting} className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 disabled:bg-purple-300 flex items-center justify-center transition">
-            {isSubmitting && <LoaderCircle className="animate-spin mr-2" />}
+          {/* Confirm intent before submit */}
+          <div className="mt-4">
+            <label htmlFor="confirm-submit" className="flex items-start gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg cursor-pointer">
+              <input
+                id="confirm-submit"
+                type="checkbox"
+                className="mt-1.5 h-4 w-4 text-purple-600"
+                checked={confirmAccept}
+                onChange={(e) => setConfirmAccept(e.target.checked)}
+              />
+              <span className="text-sm text-gray-700">
+                ฉันยืนยันที่จะส่งข้อมูลเข้าร่วมการประกวด และได้ตรวจสอบความถูกต้องของข้อมูลเรียบร้อยแล้ว
+              </span>
+            </label>
+          </div>
+
+          <button type="submit" disabled={isSubmitting || !confirmAccept} className="w-full bg-purple-600 text-white py-4 rounded-lg font-bold hover:bg-purple-700 disabled:bg-purple-300 flex items-center justify-center transition text-lg">
+            {isSubmitting && <Hourglass className="animate-spin mr-2" />}
             {isSubmitting ? 'กำลังส่งข้อมูล...' : 'ยืนยันการสมัคร'}
           </button>
         </form>
